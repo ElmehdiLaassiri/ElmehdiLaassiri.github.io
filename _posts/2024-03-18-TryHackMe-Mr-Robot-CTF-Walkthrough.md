@@ -1,8 +1,9 @@
+---
 title: "THM Mr Robot Walkthrough"
 date: 2024-03-18 00:00:00 +0000
 categories: [Walkthroughs]
 tags: [tryhackme, ctf, Pentesting , Walkthroughs]
-
+---
 
 # TryHackMe: Mr Robot CTF  Walkthrough |by Elmehdi Laassiri :
 
