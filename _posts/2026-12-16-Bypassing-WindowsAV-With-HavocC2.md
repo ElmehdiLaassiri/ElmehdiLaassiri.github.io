@@ -9,43 +9,61 @@
 
 ![](https://miro.medium.com/v2/resize:fit:700/0*vhSVGNSXzyuRvuyk.png)
 
-**Summary :***In this post, we will begin by introducing **Havoc C2**, along with several core concepts such as agents, demons, listeners, and how they interact within a red team simulation.*
-*Next, we will proceed to **setting up the Havoc C2 server on Kali Linux**.*
-*For the attack simulation, we will first generate our **second-stage payload** using Havoc. This Demon payload will communicate back to our Havoc server over HTTPS.*
-*We will then create the **first-stage loader**, whose role is to contact a Metasploit HTTPS handler hosting our second-stage shellcode. The key challenge here is ensuring that the loader does **not get detected by Windows Defender**.*
-*To achieve this, we will:*
-***. Encrypt the first-stage shellcode**,*
-***. Use a custom injector** that decrypts the payload **only in memory**, ensuring it never touches disk.*
-*In addition, we will secure the staging channel by using advanced Metasploit features such as **TLS certificate pinning**. This requires generating a custom SSL certificate to ensure encrypted and trusted communication between the loader and the Metasploit handler.*
-*Once the loader executes in memory and successfully communicates with Metasploit, it retrieves the **second-stage Demon payload**, which then connects back to our Havoc C2 server completing the chain.*
-*Finally, once we obtain a successful callback, we will explore several **post-exploitation features in Havoc**, and use **SharPersist** to establish persistence on the target. This ensures that even after a system reboot, our access is restored and the C2 connection is re-established.*
-**Table Of Content :*1. Havoc C2 Overview***
-*1.1 What Is Havoc and Why Use a C2 Server?*
-*Introduce Havoc, what a C2 is, and why red teams rely on one.*
-*1.2 Core Concepts: Agents, Demons, Listeners*
-*Explain the terminology that Havoc uses internally.*
-*1.3 Setting Up Havoc on Kali Linux*
-*Walk through installation, configuration, and first listener setup.*
-***2. Attack Chain Simulation***
-*2.1 Generating the Second-Stage Payload with Havoc*
-*Creating the Demon shellcode that will ultimately connect back to Havoc.*
-***2.2 Preparing the First-Stage Loader***
-*2.2.1 Generating a TLS Certificate*
-*Required for secure staging and Defender evasion.*
-*2.2.2 Creating the First-Stage Payload with Metasploit*
-*Configuring reverse_winhttps, TLS pinning, etc.*
-*2.2.3 Setting Up the Metasploit HTTPS Handler*
-*Hosting the second-stage and enabling paranoid mode features.*
-*2.2.4 Encrypting the First-Stage Shellcode*
-*Using AES and a custom Python script.*
-*2.2.5 Building the Custom Injector*
-*Decrypting the payload in memory and executing it safely.*
-***3. Gaining Access***
-*Executing the Loader & Establishing the Callback*
-***4. Establishing Persistence***
-*4.1 Using Havoc’s .NET Inline Execution + SharPersist*
-*Creating registry-based persistence to maintain access after reboot.*
-***5 . Bonus***
+### Summary
+
+In this post, we will begin by introducing **Havoc C2**, along with several core concepts such as agents, demons, listeners, and how they interact within a red team simulation.
+
+Next, we will proceed to **setting up the Havoc C2 server on Kali Linux**.
+
+For the attack simulation, we will first generate our **second-stage payload** using Havoc. This Demon payload will communicate back to our Havoc server over HTTPS.
+
+We will then create the **first-stage loader**, whose role is to contact a Metasploit HTTPS handler hosting our second-stage shellcode. The key challenge here is ensuring that the loader does **not get detected by Windows Defender**.
+
+To achieve this, we will:
+* **Encrypt the first-stage shellcode**
+* **Use a custom injector** that decrypts the payload **only in memory**, ensuring it never touches disk.
+
+In addition, we will secure the staging channel by using advanced Metasploit features such as **TLS certificate pinning**. This requires generating a custom SSL certificate to ensure encrypted and trusted communication between the loader and the Metasploit handler.
+
+Once the loader executes in memory and successfully communicates with Metasploit, it retrieves the **second-stage Demon payload**, which then connects back to our Havoc C2 server completing the chain.
+
+Finally, once we obtain a successful callback, we will explore several **post-exploitation features in Havoc**, and use **SharPersist** to establish persistence on the target. This ensures that even after a system reboot, our access is restored and the C2 connection is re-established.
+
+---
+
+### Table of Content
+
+#### 1. Havoc C2 Overview
+* **1.1 What Is Havoc and Why Use a C2 Server?**
+  Introduce Havoc, what a C2 is, and why red teams rely on one.
+* **1.2 Core Concepts: Agents, Demons, Listeners**
+  Explain the terminology that Havoc uses internally.
+* **1.3 Setting Up Havoc on Kali Linux**
+  Walk through installation, configuration, and first listener setup.
+
+#### 2. Attack Chain Simulation
+* **2.1 Generating the Second-Stage Payload with Havoc**
+  Creating the Demon shellcode that will ultimately connect back to Havoc.
+* **2.2 Preparing the First-Stage Loader**
+  * **2.2.1 Generating a TLS Certificate**
+    Required for secure staging and Defender evasion.
+  * **2.2.2 Creating the First-Stage Payload with Metasploit**
+    Configuring `reverse_winhttps`, TLS pinning, etc.
+  * **2.2.3 Setting Up the Metasploit HTTPS Handler**
+    Hosting the second-stage and enabling paranoid mode features.
+  * **2.2.4 Encrypting the First-Stage Shellcode**
+    Using AES and a custom Python script.
+  * **2.2.5 Building the Custom Injector**
+    Decrypting the payload in memory and executing it safely.
+
+#### 3. Gaining Access
+* **Executing the Loader & Establishing the Callback**
+
+#### 4. Establishing Persistence
+* **4.1 Using Havoc’s .NET Inline Execution + SharPersist**
+  Creating registry-based persistence to maintain access after reboot.
+
+#### 5. Bonus
 
 # **1 / Havoc C2 Overview :**
 
