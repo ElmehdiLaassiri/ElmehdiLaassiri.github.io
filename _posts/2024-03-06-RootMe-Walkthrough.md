@@ -1,3 +1,8 @@
+title: "RootMe Walkthrough"
+date: 2024-03-06 00:00:00 +0000
+categories: [Walkthroughs]
+tags: [tryhackme, ctf, Pentesting , Walkthroughs]
+
 # RootMe Walkthrough (Detailed) | By Elmehdi Laassiri :
 
 Hello Everyone and welcome to our RootMe Ctf Walkthrough , this is an easy box , so it shouldnt be hard for you to follow along , i will try to be make it as simple as possible , now let s start !
