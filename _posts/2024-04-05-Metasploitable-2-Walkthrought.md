@@ -1,3 +1,11 @@
+---
+title: "Metasploitable 2 Walkthrough "
+date: 2024-04-15 00:00:00 +0000
+categories: [Walkthroughs]
+tags: [tryhackme, ctf, Pentesting, Walkthroughs]
+---
+
+
 # Metasploitable 2 Walkthrought | By Elmehdi Laassiri :
 
 ![](https://miro.medium.com/v2/resize:fit:640/0*dBXtMyjsd6FaPG16.png)
