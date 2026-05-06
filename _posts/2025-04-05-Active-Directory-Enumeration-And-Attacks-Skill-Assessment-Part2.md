@@ -1,3 +1,10 @@
+---
+title: "Active Directory Enumeration And Attacks Skill Assessment Part 2"
+date: 2024-04-05 00:00:00 +0000
+categories: [Walkthroughs]
+tags: [tryhackme, ctf, Hack The Box, Pentesting, Walkthroughs]
+---
+
 # Active Directory Enumeration And Attacks Skill Assessment Part 2 | By Laassiri Elmehdi (Diffrent Approach)
 
 Hello everyone and welcome to this Guide on how to solve the Skill Assessment Part 2 for the AD module , Before we start , i just wanna say that there is an easier method to solve this module , but since i wanted to be more familiar with **Chisel** , i decided to add some Tunneling along with the use of a tool called **NetExec** , which is not mentionned in the module , but it s just like using **CME** , but since CME is no longer supported i wanted to get used to something else .
