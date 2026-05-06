@@ -1,10 +1,5 @@
-# EJPT Cheat Sheet :
-
-[Elmehdi Laassiri](https://miro.medium.com/v2/resize:fill:32:32/0*o-l4BsUqEB0qE3Kk)
-
 # **INE eJPT Cheat Sheet | By Elmehdi LAASSIRI**
 
-[Elmehdi Laassiri](https://miro.medium.com/v2/da:true/resize:fill:32:32/0*o-l4BsUqEB0qE3Kk)
 
 Hello everyone , i recently passed the eJPT cert from INE , and i wanted to make a cheat sheet that can be useful for others who are planning on taking the exam , i will be dividing it into 3 phases , Enumeration , Exploitation and Post Exploitation , for each section i will give you a check list as well as the commands and tools that you might need for each step .
 
