@@ -1,3 +1,10 @@
+---
+title: "Active Directory Enumeration and Attacks : Skill Assessment Part 1"
+date: 2025-01-01 00:00:00 +0000
+categories: [Walkthroughs]
+tags: [tryhackme, Hack The Box , ctf, Pentesting, Walkthroughs]
+---
+
 # Active Directory Enumeration and Attacks : Skill Assessment Part 1 | By Laassiri Elmehdi :
 
 ![](https://miro.medium.com/v2/resize:fit:700/0*hqL2M0QAg2EZCm0V.png)
