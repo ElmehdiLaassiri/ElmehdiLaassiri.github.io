@@ -1,3 +1,10 @@
+---
+title: "THMIInternal Walkthrough"
+date: 2024-04-06 00:00:00 +0000
+categories: [Walkthroughs]
+tags: [tryhackme, ctf, Pentesting, Walkthroughs]
+---
+
 # Internal Walkthrough | By Laassiri Elmehdi :
 
 ![](https://miro.medium.com/v2/resize:fit:700/0*b8jXFpesNWVlTkRD.jpg)
