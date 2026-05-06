@@ -1,3 +1,10 @@
+---
+title: "Bypassing Windows AV using Havoc C2 and Metasploit Server "
+date: 2025-12-16 00:00:00 +0000
+categories: [Red Teaming & AV Evasion ]
+tags: [AV Evasion , Red Team , Pentesting, Malware Development , C2 Frameworks , Havoc]
+---
+
 # Red Team Simulation: Multi-Stage Delivery, AV Bypass Analysis & Persistence with Havoc C2 :
 
 ***Hello everyone, and welcome to my new blog post on AV bypass research !***
