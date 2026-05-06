@@ -6,6 +6,8 @@ timezone: Europe/Paris
 title: Elmehdi Laassiri
 tagline: Pentesting & Security Research
 
+avatar: /assets/picture.jpg
+
 description: Pentesting methodology and security research blog.
 
 url: "https://elmehdilaassiri.github.io"
@@ -15,9 +17,10 @@ github:
 
 social:
   name: Elmehdi Laassiri
-  email: ""
+  email: "elmehdi.laassiri74@gmail.com"
   links:
     - https://github.com/ElmehdiLaassiri
+    - https://www.linkedin.com/in/elmehdi-laassiri-5a5645299
 
 toc: true
 
