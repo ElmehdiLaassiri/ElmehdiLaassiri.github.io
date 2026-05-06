@@ -1,4 +1,13 @@
+---
+title: "INE eJPT Cheat Sheet | By Elmehdi LAASSIRI"
+date: 2026-03-16 00:00:00 +0000
+categories: [Methodology & Cheat Sheets]
+tags: [eJPT, Methodology , Pentesting, INE ]
+---
+
 # **INE eJPT Cheat Sheet | By Elmehdi LAASSIRI**
+
+
 
 
 Hello everyone , i recently passed the eJPT cert from INE , and i wanted to make a cheat sheet that can be useful for others who are planning on taking the exam , i will be dividing it into 3 phases , Enumeration , Exploitation and Post Exploitation , for each section i will give you a check list as well as the commands and tools that you might need for each step .
