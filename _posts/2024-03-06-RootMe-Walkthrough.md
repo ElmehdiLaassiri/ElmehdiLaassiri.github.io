@@ -1,5 +1,5 @@
 ---
-title: "RootMe Walkthrough"
+title: "Try Hack Me RootMe Walkthrough"
 date: 2024-03-06 00:00:00 +0000
 categories: [Walkthroughs]
 tags: [tryhackme, ctf, Pentesting , Walkthroughs]
