@@ -40,7 +40,7 @@ Used to be a member of Cyber Cohesion .
 
 ---
 
-## 🔬 Some Things I've Built
+## 🔬 Projects 
 
 - **AV Evasion on Windows 11** — bypassed Defender with a 2-stage payload using Havoc C2 + Metasploit *(writeup on this blog)*
 - **Active Directory Lab** — full attack chain simulation: ADCS, NTLM Relay, Havoc C2
