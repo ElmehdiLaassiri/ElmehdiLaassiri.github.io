@@ -16,7 +16,7 @@ tags: [AV Evasion , Red Team , Pentesting, Malware Development , C2 Frameworks ,
 
 ![](https://miro.medium.com/v2/resize:fit:700/0*vhSVGNSXzyuRvuyk.png)
 
-### Summary
+## Summary
 
 In this post, we will begin by introducing **Havoc C2**, along with several core concepts such as agents, demons, listeners, and how they interact within a red team simulation.
 
@@ -38,7 +38,7 @@ Finally, once we obtain a successful callback, we will explore several **post-ex
 
 ---
 
-### Table of Content
+## Table of Content
 
 #### 1. Havoc C2 Overview
 * **1.1 What Is Havoc and Why Use a C2 Server?**
@@ -72,7 +72,7 @@ Finally, once we obtain a successful callback, we will explore several **post-ex
 
 #### 5. Bonus
 
-# **1 / Havoc C2 Overview :**
+#**1 / Havoc C2 Overview :**
 
 ### **1.1 What Is Havoc and Why Use a C2 Server?**
 
@@ -819,7 +819,7 @@ Also make sure you specify Release and not Debug when building it .
 
 Now we simply need to import the Injector.exe File to the Windows10 machine and run it to see if we get a connection back .
 
-# **3/ Gaining Access :**
+## **3/ Gaining Access :**
 
 Now that we got the Final Executable , we can import it to the Windows machine to test if we get a connection back . For this i already downloaded a Fully patched Windows 10 machine with AV on .
 
@@ -857,7 +857,7 @@ Now that we have a session, there are many things we *could* do — privilege 
 
 But for this demo, we’re mainly interested in one thing: **maintaining persistence**, so that even if the target machine reboots, we automatically regain access.
 
-# **4/ Establishing Persistence :**
+## **4/ Establishing Persistence :**
 
 To achieve persistence, we can use several different techniques. One nice thing about Havoc is that it lets us run tools directly on the target machine using the **dotnet** module. Havoc gives us two options:
 
@@ -898,7 +898,7 @@ Press enter or click to view image in full size
 
 And we do , so everything just worked as planned .
 
-# **5/ Bonus :**
+## 5/ Bonus :
 
 For the final test, I decided to run the injector on my own host machine a fully updated Windows 11 system with the built-in antivirus enabled. The goal was simply to see whether the whole chain would still work without any issues and it did: the callback appeared instantly on my Havoc C2.
 
