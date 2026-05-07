@@ -72,7 +72,7 @@ Finally, once we obtain a successful callback, we will explore several **post-ex
 
 #### 5. Bonus
 
-#**1 / Havoc C2 Overview :**
+## 1 / Havoc C2 Overview :
 
 ### **1.1 What Is Havoc and Why Use a C2 Server?**
 
@@ -255,7 +255,7 @@ Press enter or click to view image in full size
 
 ![](https://miro.medium.com/v2/resize:fit:700/1*KMTBC9xuba7iyGAdy4aEGw.png)
 
-# **2/ Attack Chain Simulation :**
+## 2/ Attack Chain Simulation :
 
 ### **2.1 Generating the Second-Stage Payload with Havoc :**
 
