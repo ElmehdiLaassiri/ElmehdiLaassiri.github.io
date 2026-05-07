@@ -1,6 +1,6 @@
 ---
 title: "OSCP / CPTS Methodology"
-date: 2026-04-07 00:00:00 +0000
+date: 2026-04-28 00:00:00 +0000
 categories: [Methodology & Cheat Sheets]
 tags: [OSCP, CPTS, Methodology, Cheat Sheet, Active Directory, Pentesting]
 toc: true
