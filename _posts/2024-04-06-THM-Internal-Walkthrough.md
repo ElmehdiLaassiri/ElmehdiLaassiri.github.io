@@ -1,5 +1,5 @@
 ---
-title: "THMIInternal Walkthrough"
+title: "THM Internal Walkthrough"
 date: 2024-04-06 00:00:00 +0000
 categories: [Walkthroughs]
 tags: [tryhackme, ctf, Pentesting, Walkthroughs]
