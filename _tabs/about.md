@@ -4,7 +4,7 @@ icon: fas fa-info-circle
 order: 4
 ---
 
-Hey, I'm **Elmehdi** — a cybersecurity engineer passionate about offensive security and breaking things (legally).
+Hey, I'm **Elmehdi** , a cybersecurity engineer passionate about offensive security and breaking things . 
 
 I specialize in **web & API pentesting**, **Active Directory attacks**, and I'm always chasing that next foothold. When I'm not working on real engagements, you'll find me grinding on **Hack The Box** and **Vulnlab**, or writing about what I learned along the way.
 
@@ -23,11 +23,11 @@ I specialize in **web & API pentesting**, **Active Directory attacks**, and I'm 
 
 | | |
 |---|---|
-| 🟠 **HTB** | Pro Lab: Dante · Penetration Tester Path · Web Application Pentester Path |
-| 🔴 **CyberWarfare Labs** | CRTA |
-| 🟡 **TCM Security** | Practical Ethical Hacker |
+| 🟠 **HTB** | Pro Lab: Dante | Penetration Tester Path (CPTS Path) | Web Application Pentester Path (CWES Path) |
+| 🔴 **CyberWarfare Labs** | CRTA | WEB-RTA |
+| 🟡 **TCM Security** | Practical Ethical Hacker | Windows Privilege Escalation | Linux Privilege Escalation |
 | 🟢 **INE** | eJPTv2 |
-| 🔵 **In progress** | OSCP |
+| 🔵 **In progress** | CWES | OSCP |
 
 ---
 
