@@ -16,14 +16,14 @@ Press enter or click to view image in full size
 
 ![](https://miro.medium.com/v2/resize:fit:700/1*Yizy-CpHopWfca43npQSxg.jpeg)
 
-# **What is eJPT ?**
+## **What is eJPT ?**
 
 The eJPT (eLearnSecurity Junior Penetration Tester) is a junior level certification offered by INE Security. It’s a practical exam , you get access to a real lab environment and answer questions based on your progress on the machines. No theory, no guessing , the answers come from what you actually find. It covers the fundamentals: network enumeration, web application basics, exploitation, privilege escalation and pivoting. You get 48 hours to complete it, which is more than enough — and if you go through the course and complete all the skill assessments, you’re already in a good spot to secure your cert. It’s a great first step if you’re looking to break into penetration testing.
 
 > *Note that this is not a walkthrough , you won’t find specific answers here, but if you follow the methodology you should be good to go. With that said, let’s get into it 🙌*
 > 
 
-# **I/ Enumeration**
+## **I/ Enumeration**
 
 **Checklist :**
 
@@ -525,7 +525,7 @@ https://www.pentest-book.com/others/web-checklist
 
 These should be more than enough to cover almost every service that you will ever encounter .
 
-# **II/ Exploitation**
+## **II/ Exploitation**
 
 **Check List**
 
@@ -705,7 +705,7 @@ net users                       # List all users
 net localgroup administrators   # Who's in the admin group
 ```
 
-# **III/ Post Exploitation**
+## **III/ Post Exploitation**
 
 Perfect so now we got access , a foothold on the network , maybe a web shell , maybe an ssh account , smb creds , … , either way , we now need to start our reconnaissance once again , ENUMERATION once again haha , when it comes to post exploitation the main idea is :
 
@@ -1015,7 +1015,7 @@ xfreerdp /u:admin /pth:NTLM_HASH /v:$target
 
 The format of the Hash from the Hash dump is always **LM:NTLM** you only need the **NTLM** part for PTH . also always add — continue-on-success if you’re spraying .
 
-### **Persistence**
+## **Persistence**
 
 ***1/ Windows***
 
@@ -1094,7 +1094,7 @@ chmod 600 ssh_keys
 ssh -i ssh_key root@$target
 ```
 
-### **Pivoting**
+## **Pivoting**
 
 ```bash
 # Using Metasploit
@@ -1178,7 +1178,7 @@ sudo ip route add 172.16.2.101/32 dev ligoloX
 ip tuntap del dev ligoloo mode tun
 ```
 
-### **Conclusion**
+## **Conclusion**
 
 > *That’s it for this cheat sheet , i tried to keep it as practical as possible and cover everything you might encounter during the eJPT exam, and even some tools and commands that are just good to know , you might not need everything in this check list but it’s always good to know .*
 > 
