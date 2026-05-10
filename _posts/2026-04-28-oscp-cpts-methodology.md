@@ -8,7 +8,7 @@ toc: true
 
 # CheckList :
 
-## **Linux :**
+## Linux :
 
 - **Before having access :**
 - **Do nmap scan .**
@@ -32,12 +32,12 @@ toc: true
 - **After Root :**
 - **Check the shadow file and root folder for important files , maybe some creds , crack the shadow file , you will need the passwd + shadow = unshadow then John .**
 
-## **Windows :**
+## Windows :
 
 - **Check for Quick wins , PS history , Config files .**
 - **Check downloaded Programs that are unsual .**
 
-## **Domains :**
+## Domains :
 
 - **Always run nxc on all IPs to get the computer names , identify servers and DCs .**
 - **Always Check the Network interfaces on every machine that we get access to , we can do a ping Sweep (In Cross Forest)**
