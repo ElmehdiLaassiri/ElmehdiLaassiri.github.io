@@ -106,7 +106,7 @@ curl http://$target/templates/cassiopeia/error.php?cmd=id
 <img width="1255" height="567" alt="image" src="https://github.com/user-attachments/assets/3bac2ccf-0419-4f39-a24c-f699ff45ae15" />
 
 
-Now a simple curl will get us RCE , now let’s try and get a full reverse Shell . for this we can use [Revshell.com](http://Revshell.com) , this time the machine already has python , but i still preferred using a bash Revershell , but you can choose anything you want (if the command doesn’t work URL encode the payload first)
+Now a simple curl will get us RCE , now let’s try and get a full reverse Shell . for this we can use Revshell website , this time the machine already has python , but i still preferred using a bash Revershell , but you can choose anything you want (if the command doesn’t work URL encode the payload first)
 
 
 <img width="1539" height="735" alt="image" src="https://github.com/user-attachments/assets/581f8858-8117-4ce3-ad20-9ef5794f252c" />
