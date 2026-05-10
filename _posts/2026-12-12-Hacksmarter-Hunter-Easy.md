@@ -1,3 +1,4 @@
+---
 title: "HackSmarter Hunter Walkthrough (Easy) "
 date: 2025-12-11 00:00:00 +0000
 categories: [ HackSmarter]
