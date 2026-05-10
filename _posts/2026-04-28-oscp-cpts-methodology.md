@@ -6,7 +6,7 @@ tags: [OSCP, CPTS, Methodology, Cheat Sheet, Active Directory, Pentesting]
 toc: true
 ---
 
-# CheckList :
+# Checklist : 
 
 ## Linux :
 
