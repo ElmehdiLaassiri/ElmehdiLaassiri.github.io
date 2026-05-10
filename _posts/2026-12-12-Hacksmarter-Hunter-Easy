@@ -1,3 +1,11 @@
+
+---
+title: "HackSmarter - Hunter (Easy)"
+date: 2026-12-11 00:00:00 +0000
+categories: [HackSmarter]
+tags: [enumeration, Hacksmarter , Easy , Web_Challenge]
+---
+
 # Summary :
 
 > Hunter is a an easy challenge from HackSmater , where we try to enumerate valid usernames on an enterprise portal , the protal seems pretty secure at first as it doesn’t return any information that might be used to filter for and enumerate users , But the Password reset feature has a flaw ; the time it takes for requests are different based on whether that user exists or not , so we will be abusing this to get a list of valid usernames . Baisically Time based user enumeration if you want to call it that :)
