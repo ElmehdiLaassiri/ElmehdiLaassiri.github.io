@@ -1,4 +1,3 @@
-<img width="1018" height="704" alt="image" src="https://github.com/user-attachments/assets/e0038c41-0707-40f9-b4da-0d9ad7c51671" />---
 title: "HackSmarter Hunter Walkthrough (Easy) "
 date: 2025-12-11 00:00:00 +0000
 categories: [ HackSmarter]
