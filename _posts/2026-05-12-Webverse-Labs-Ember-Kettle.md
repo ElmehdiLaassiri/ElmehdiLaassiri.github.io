@@ -54,7 +54,7 @@ If we wanted to test for an Out Of band XSS , for example the webapp doesn't ret
 Now we use a payload that will go fetch our URL : 
 
 ```bash
-<script src="https://webhook.site/1aaef16c-4d7c-4ad6-bd9c-a90f3a9d1091"></script>
+<script src="https://webhook.site/1aaef16c-4d7c-4ad6-bd9c-aaaa90f3a9d1091"></script>
  ```
 Now once we execute this payload , we should be able to get a Request to our WebHook site . 
 
