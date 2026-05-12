@@ -81,7 +81,7 @@ XSStrike generated an event-based payload using the ontoggle handler , this requ
 <dEtailS/+/OnTOgGLe%09=%09confirm()>
 ```
 
-The <details> section is rendered in the page because our payload was successfully injected and executed — clicking on it triggers the confirmation popup, confirming the XSS vulnerability.
+The details section is rendered in the page because our payload was successfully injected and executed , clicking on it triggers the confirmation popup, confirming the XSS vulnerability.
 
 <img width="1056" height="771" alt="image" src="https://github.com/user-attachments/assets/0e7d8db2-7924-47c1-894d-01fa0cb705be" />
 
