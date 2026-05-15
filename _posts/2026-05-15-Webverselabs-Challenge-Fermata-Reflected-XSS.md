@@ -6,12 +6,12 @@ tags: [Webverselabs , Medium , Challenge , Web_Attacks ]
 ---
 
 
-# Scenario : 
+## Scenario : 
 
 Fermata connects clients with piano tuners. An old debug line left over from development drops the booking reference into an HTML comment so ops can scan View Source for bad IDs. It never occurred to anyone that comments are just text — not a fence.
 
 
-# Solution :
+## Solution :
 
 First let's enumerate the application normally . 
 
