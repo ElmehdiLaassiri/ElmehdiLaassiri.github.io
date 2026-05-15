@@ -48,7 +48,7 @@ We see that our Shell is uploaded without any issue , now we just need to know w
 <img width="1434" height="755" alt="image" src="https://github.com/user-attachments/assets/898a2762-93f1-4f96-a422-68876c6ff81d" />
 
 
-perfect , now we just need to visit the /reviews/13-shell.php endpoint to interact with our Web Shell . 
+Perfect , now we just need to visit the /reviews/13-shell.php endpoint to interact with our Web Shell . 
 
 
 <img width="1050" height="331" alt="image" src="https://github.com/user-attachments/assets/731759f7-a5c0-4214-844b-5e9dfe401b7b" />
