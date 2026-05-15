@@ -6,12 +6,12 @@ tags: [Webverselabs , Medium , Challenge , Web_Attacks ]
 ---
 
 
-# Scenario : 
+## Scenario : 
 
 Calliope was founded in 2021 by two former MFA students who couldn't get a toehold on the New York gallery circuit and decided to build their own. Three years on, the roster is about eighty emerging painters, illustrators and printmakers across North America, with bricks-and- mortar viewing rooms in Tribeca and Highland Park. Last spring a contractor wired in a thumbnail-resizer to keep the portfolio dirs fast on mobile and left a small config tweak in the upload tree to make the resizer work; the team has long since forgotten the integration is in there at all.
 
 
-# Solution :
+## Solution :
 
 We first visit the webapp like a normal user to see different endpoints , tried Fuzzing for files and directories but that didn't return anything useful .
 
