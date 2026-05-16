@@ -1746,7 +1746,12 @@ find / -name "flag*" 2>/dev/null
 
 # Debugging : 
 sudo ss -lntp | grep <PORT>
-kill -9 PID 
+kill -9 PID
+
+# Python Env :
+python3 -m venv venv
+source venv/bin/activate
+pip install <package>
 
 ```
 
