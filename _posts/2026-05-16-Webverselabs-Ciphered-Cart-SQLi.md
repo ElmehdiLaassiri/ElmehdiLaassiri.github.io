@@ -69,7 +69,7 @@ Now let's try and use sqlmap to inject inside this request .
 <img width="1111" height="574" alt="image" src="https://github.com/user-attachments/assets/e21d02c0-4a9d-423f-b555-fc6f08301c6b" />
 
 
-Perfect , the code parameter is indeed vulnerable , now let's dump the databases then tables , and get out flag . 
+Perfect , the code parameter is indeed vulnerable , now let's dump the databases then tables , and get out flag. 
 
 
 <img width="1147" height="851" alt="image" src="https://github.com/user-attachments/assets/22361b02-c37a-48b0-a78b-a620064296ac" />
