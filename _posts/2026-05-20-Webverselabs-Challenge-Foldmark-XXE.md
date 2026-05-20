@@ -10,6 +10,9 @@ tags: [Webverselabs , Medium , Challenge , Web_Attacks ]
 
 Foldmark serves about five thousand small businesses and has held SOC 2 Type II since 2024. Last quarter the sales team kept losing migration deals to "we can't bring our history with us," so the product team shipped a cross-vendor envelope importer on a tight deadline — drop in a file from a competitor and Foldmark renders a preview with the signer, document title, organization and timestamp lifted straight from the document.
 
+
+## Solution : 
+
 <img width="1524" height="870" alt="image" src="https://github.com/user-attachments/assets/cd3c2ab3-c575-427c-ba2e-27f979ca11a4" />
 
 As usual, we first naviage the application like a normal user , check different endpoints , different features , ... , This is a documents signing app that uses xml docs , we find this /docs endpoint which gives us an example of the strcuture that our envelope should take . 
