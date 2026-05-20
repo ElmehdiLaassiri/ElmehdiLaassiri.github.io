@@ -20,7 +20,7 @@ We first create an account then browse the application just like a normal user t
 
 <img width="1751" height="824" alt="image" src="https://github.com/user-attachments/assets/34d9012e-d94a-40ad-b9df-8a384ad229c0" />
 
-Upon navigating the application , we find this Diagnostics endpoint , which Pings whatevere address we give it to check if it's alive . This is porbably just running a ping command underneath , which can be abused for a command injection if the parameter being passed to the server isn't well sanitized 
+Upon navigating the application , we find this Diagnostics endpoint , which Pings whatever address we give it to check if it's alive . This is porbably just running a ping command underneath , which can be abused for a command injection if the parameter being passed to the server isn't well sanitized 
 
 <img width="1597" height="711" alt="image" src="https://github.com/user-attachments/assets/6f5d9de9-170d-4de0-b7ca-c51c5aaa1ee8" />
 
