@@ -770,7 +770,11 @@ if you get access , Look for usernames using netexec , --rid-brute , --users and
 ```bash
 dnsrecon -d Domain -n $target : Scan for dns . 
 
-dig DomainName @IP axfr : Zone transfer . 
+dig DomainName @IP axfr : Zone transfer .
+
+# Adding Hostnames to /etc/hosts :
+nxc smb $target -u '' -p '' --generate-hosts-file hosts
+
 ```
 
 #### Enumerating RPC :
