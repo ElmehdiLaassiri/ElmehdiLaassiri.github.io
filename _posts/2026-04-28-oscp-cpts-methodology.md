@@ -747,13 +747,12 @@ sqlite3 places.sqlite 'SELECT url, title FROM moz_places ORDER BY last_visit_dat
 - Find Usernames :
 Find usernames in Web Site and generate a Username List maybe .
 if you get access , Look for usernames using netexec , --rid-brute , --users and enumdomuser with RPC client .
-    
-    Check usernames found with kerbrute .
-    
+- Check usernames found with kerbrute .  
 - Search for ASREP Roastable Users .
 - Once we have valid Creds : Check Kerberoastable users + Spray the password on all users .
 - Try to authenticate using every protocol .
 - Enumerate shares with those Users found . Use netexec to download .
+- Check Certipy for Vulnerable Templates . 
 - If we get a Shell , try privesc , dump all Hashes using netexec or locally and store into a file .
 - If we can't privesc , we can move to Blood Hound .
 
