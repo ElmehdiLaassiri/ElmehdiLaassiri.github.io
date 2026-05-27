@@ -772,6 +772,7 @@ dnsrecon -d Domain -n $target : Scan for dns .
 dig DomainName @IP axfr : Zone transfer .
 
 # Adding Hostnames to /etc/hosts :
+
 nxc smb $target -u '' -p '' --generate-hosts-file hosts
 
 ```
@@ -833,7 +834,9 @@ netexec smb $target -u '' -p '' : Test anonymous access .
 
 netexec smb $target -u '' -p '' --users : Generate a list of users . 
 
-nxc smb $target -u '' -p '' --users | awk '{print $5}' : Users Only .  
+nxc smb $target -u '' -p '' --users | awk '{print $5}' : Users Only .
+
+nxc smb $target -u '' -p '' --users | awk '{print $5}' | grep -vE '^\[|^-|^$' | tee users.txt : users Only as well . 
 
 netexec smb $target -u 'guest' -p '' --users : Generate a list of users . 
 
