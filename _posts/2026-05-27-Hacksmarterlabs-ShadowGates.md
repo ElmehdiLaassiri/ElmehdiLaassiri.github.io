@@ -49,7 +49,7 @@ nxc smb $target -u '' -p '' --generate-hosts-file hosts
 ```
 <img width="1524" height="490" alt="image" src="https://github.com/user-attachments/assets/a9bed9a0-1e02-4d4d-8d59-d4d5c8edb0c6" />
 
-Now let's start enumerating valid users . 
+Just add this line to the /etc/hosts file . Now let's start enumerating valid users . 
 
 <img width="1704" height="648" alt="image" src="https://github.com/user-attachments/assets/8c274f85-209c-4f33-b064-19ab1d41ac5a" />
 
