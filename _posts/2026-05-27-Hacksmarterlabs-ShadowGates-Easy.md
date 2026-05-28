@@ -17,7 +17,7 @@ The assessment will evaluate whether a motivated attacker with standard network 
 The Hack Smarter team has been authorized to perform a black box internal penetration test against the ShadowGate environment.
 
 
-## Foothold : 
+## Solution : 
 
 First we start with an nmap scan : 
 
