@@ -5,6 +5,8 @@ categories: [ HackSmarter]
 tags: [Hacksmarter , Active Directory]
 ---
 
+<img width="1600" height="912" alt="image" src="https://github.com/user-attachments/assets/2e1178db-dbf7-45a5-8725-47a80891f498" />
+
 
 ## Scenario : 
 
