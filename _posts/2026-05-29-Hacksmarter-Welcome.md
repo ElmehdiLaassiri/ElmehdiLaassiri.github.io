@@ -1,4 +1,4 @@
-<img width="1192" height="580" alt="image" src="https://github.com/user-attachments/assets/146e5954-e951-4508-a273-f6d359ba8594" />---
+---
 title: "HackSmarter Welcome Walkthrough  "
 date: 2026-05-29 00:00:00 +0000
 categories: [ HackSmarter]
