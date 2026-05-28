@@ -97,7 +97,7 @@ Now we can try spraying this password with the user list we gethered earlier , m
 
 <img width="1428" height="584" alt="image" src="https://github.com/user-attachments/assets/e5487c1a-3d35-46ff-ab7c-d6189ed67d57" />
 
-Perfect now we've got a new user . From here i decided to use BloodHound to speed things up , see what permissions our user has inside the domain , trying to map the fastest way to domain Admin . here are the commands to setup Bloodhound as well as the injestor . 
+Perfect now we've got a new user . From here i decided to use BloodHound to speed things up , see what permissions our user has inside the domain , trying to map the fastest way to domain Admin . here are the commands to setup Bloodhound as well as the ingestor . 
 
 ```bash
 # To get the ZIP file :
