@@ -1,5 +1,5 @@
 ---
-title: "Webverselabs Ciphered Cart Challenge File Upload  "
+title: "Webverselabs Ciphered Cart Challenge SQLi "
 date: 2026-05-16 00:00:00 +0000
 categories: [Webverselabs]
 tags: [Webverselabs , Hard , Challenge , Web_Attacks ]
