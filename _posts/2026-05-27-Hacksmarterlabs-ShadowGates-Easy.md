@@ -2,7 +2,7 @@
 title: "HackSmarter ShadowGates Walkthrough  "
 date: 2026-05-28 00:00:00 +0000
 categories: [ HackSmarter]
-tags: [Hacksmarter , Linux , Easy]
+tags: [Hacksmarter , Active Directory]
 ---
 
 
