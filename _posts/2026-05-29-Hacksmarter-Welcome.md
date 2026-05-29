@@ -1,7 +1,7 @@
 ---
 title: "HackSmarter Welcome Walkthrough  "
 date: 2026-05-29 00:00:00 +0000
-categories: [ HackSmarter]
+categories: [ HackSmarterlabs]
 tags: [Hacksmarterlabs , Active Directory]
 ---
 
