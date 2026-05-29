@@ -2,7 +2,7 @@
 title: "HackSmarter Hunter Walkthrough "
 date: 2025-12-11 00:00:00 +0000
 categories: [ HackSmarter]
-tags: [Hacksmarter , Web_Challenge , Easy]
+tags: [Hacksmarterlabs , Web_Challenge , Easy]
 ---
 
 # Summary :
