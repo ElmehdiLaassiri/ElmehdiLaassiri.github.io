@@ -1,7 +1,7 @@
 ---
 title: "HackSmarter Samurai Walkthrough "
 date: 2026-05-10 00:00:00 +0000
-categories: [HackSmarter]
+categories: [HackSmarterlabs]
 tags: [Hacksmarterlabs , Easy , Walkthrough , Linux ]
 ---
 
