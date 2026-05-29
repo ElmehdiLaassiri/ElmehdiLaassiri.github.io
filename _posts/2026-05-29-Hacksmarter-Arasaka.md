@@ -2,7 +2,7 @@
 title: "HackSmarter Arasaka Walkthrough  "
 date: 2026-05-29 00:00:00 +0000
 categories: [ HackSmarter]
-tags: [Hacksmarter , Active Directory]
+tags: [Hacksmarterlabs , Active Directory]
 ---
 
 <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/fea06620-a267-415b-a27a-0840c0e4d1e6" />
