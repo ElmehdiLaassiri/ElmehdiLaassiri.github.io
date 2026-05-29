@@ -1,4 +1,4 @@
-<img width="1894" height="501" alt="image" src="https://github.com/user-attachments/assets/ceb7a779-ca7a-4986-993a-77e807319ab3" /><img width="1182" height="712" alt="image" src="https://github.com/user-attachments/assets/d76deaf4-f132-4f64-bd1b-4d1b0cb0b737" />---
+---
 title: "HackSmarter 404 Bank Walkthrough  "
 date: 2026-05-29 00:00:00 +0000
 categories: [ HackSmarter]
