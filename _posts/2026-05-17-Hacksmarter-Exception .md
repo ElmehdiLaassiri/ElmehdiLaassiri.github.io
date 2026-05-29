@@ -2,7 +2,7 @@
 title: "HackSmarter Exception Walkthrough (Medium) "
 date: 2026-05-17 00:00:00 +0000
 categories: [ HackSmarter]
-tags: [Hacksmarter , Linux , Medium]
+tags: [Hacksmarterlabs , Linux , Medium]
 ---
 
 
