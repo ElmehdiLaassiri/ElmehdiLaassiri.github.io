@@ -161,6 +161,8 @@ We first find the user flag on the Desktop , if we navigate the file system , we
 
 <img width="968" height="469" alt="image" src="https://github.com/user-attachments/assets/ad29ea7f-b74f-4f9d-8245-1c5d18f0a813" />
 
+### Privilege Escalation : 
+
 We found the of the netadmin user to login via Putty , we can attempt to spray this password across all users and hope we get a match . 
 
 <img width="1493" height="240" alt="image" src="https://github.com/user-attachments/assets/65aee754-e312-4de9-ae60-6635ce746f0f" />
