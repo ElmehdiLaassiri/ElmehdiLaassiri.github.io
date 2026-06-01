@@ -76,7 +76,7 @@ Now first thing i like to check once i get access to a linux machine is the SUID
 
 <img width="1232" height="637" alt="image" src="https://github.com/user-attachments/assets/c8ea07e6-3f91-45e3-b2ab-241c525dd802" />
 
-We see that we're able to run the binary router_config as root without password , this is a custom program so won't find any exploits on GTFOBINS , i tried running it normally to see how it would usually work , apparently it takes our file and apply some kind of configurations to it . 
+We see that we're able to run the binary router_config as root without password , this is a custom program so you won't find any known methods to exploit it on GTFOBINS , i tried running it normally to see how it would usually work , apparently it takes our file and apply some kind of configurations to it . 
 
 To analyze it better i transfered it back to my kali machine and put it inside Ghidra to try and reverse engineer it . 
 
