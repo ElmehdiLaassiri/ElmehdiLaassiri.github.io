@@ -56,7 +56,7 @@ p.waitFor()
 ==> On ur Kali :
 nc -lnvp 8443
 
-```bash
+```
 
 <img width="1599" height="640" alt="image" src="https://github.com/user-attachments/assets/601bc81d-89e8-4db9-8d33-5e37e59b0e80" />
 
