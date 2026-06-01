@@ -53,7 +53,7 @@ toc: true
 
 ```bash
 nmap -p- -Pn $target -v --min-rate 1000 --max-rtt-timeout 1000ms --max-retries 5 -oN Open_Ports.txt && sleep 5 && nmap -Pn $target -sV -sC -v -oN Nmap_sV_sC_Results.txt && sleep 5 && nmap -T5 -Pn $target -v --script vuln -oN Nmap_Vuln_Results.txt 
-nmap -p- -T5 $target
+rustscan -a $Intra --ulimit 5000 -- -sC -sV -Pn | tee Intra_scan
 nmap --script vuln -p Ports $target 
 sudo nmap 10.129.2.0/24 -sn 
 sudo nmap -sL 172.16.1.0/24
