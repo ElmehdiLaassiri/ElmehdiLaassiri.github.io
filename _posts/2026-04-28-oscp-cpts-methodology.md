@@ -334,6 +334,7 @@ john --wordlist=/usr/share/wordlists/rockyou.txt --rules --format=md5crypt-long 
 ***** Active Directory Hashcracking: ******
 
 # DCC2 Hashes mode :
+==> The DCC2 hash is the hash the machine caches whenever a domain user logs in locally. We can’t use it to authenticate over the network via SMB, LDAP, etc. So the only option is to crack it offline.
 hashcat -m 2100 Helly.DC02 /usr/share/wordlists/rockyou.txt
 
 # TGS with AES 128 :
