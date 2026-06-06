@@ -21,6 +21,7 @@ toc: true
 - **Find parameter inside the URL : LFI + SQLi .**
 - **Check if you find an Upload Page , try different File Upload Bypasses .**
 - **If you find Node-ExpressJS check for /Graphql , maybe it can lead to a SQLI .**
+- **Found a git endpoint , check git section below**
 - **Once inside :**
 - **Stabilize Shell First**
 - **Check Quick wins on Cheat Sheet .**
