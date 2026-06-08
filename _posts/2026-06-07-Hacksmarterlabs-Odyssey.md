@@ -19,6 +19,8 @@ Odyssey was built off a recent engagement that I had where the DC's were not syn
 
 ## Solution : 
 
+### Initial Scans :
+
 First we start by scanning all machines : 
 
 <img width="1814" height="790" alt="image" src="https://github.com/user-attachments/assets/ab3c393a-31d2-4391-8066-273340fcc0f1" />
