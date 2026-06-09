@@ -1,6 +1,6 @@
 ---
 title: "Webverselabs Foundry Comics SSTI  "
-date: 2026-05-15 00:00:00 +0000
+date: 2026-06-09 00:00:00 +0000
 categories: [Webverselabs]
 tags: [Webverselabs , Medium , Challenge , Web_Attacks ]
 ---
