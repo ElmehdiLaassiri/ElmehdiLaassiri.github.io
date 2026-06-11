@@ -1,5 +1,5 @@
 ---
-title: "Webverselabs Logcraft Command Injection "
+title: "Webverselabs Logcraft Challenge Command Injection "
 date: 2026-06-09 00:00:00 +0000
 categories: [Webverselabs]
 tags: [Webverselabs , Medium , Challenge , Web_Attacks ]
