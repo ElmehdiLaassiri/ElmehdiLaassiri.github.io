@@ -87,4 +87,4 @@ And just like that we are able to get our flag :
 
 <img width="1187" height="343" alt="image" src="https://github.com/user-attachments/assets/5d2d2fca-d1f3-42b7-9737-c31d2a424dab" />
 
-That was all for this challenge , see you in the next one :)
+That was all for this challenge, see you in the next one :)
