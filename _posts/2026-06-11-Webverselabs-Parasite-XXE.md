@@ -1,5 +1,5 @@
 ---
-title: "Webverselabs Parasite XXE  "
+title: "Webverselabs Parasite Challenge XXE  "
 date: 2026-06-09 00:00:00 +0000
 categories: [Webverselabs]
 tags: [Webverselabs , Medium , Challenge , Web_Attacks ]
