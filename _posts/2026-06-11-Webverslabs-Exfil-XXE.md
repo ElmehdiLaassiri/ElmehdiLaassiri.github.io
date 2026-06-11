@@ -1,6 +1,6 @@
 ---
 title: "Webverselabs Exfil Challenge XXE  "
-date: 2026-06-011 00:00:00 +0000
+date: 2026-06-11 00:00:00 +0000
 categories: [Webverselabs]
 tags: [Webverselabs , Hard , Challenge , Web_Attacks ]
 ---
