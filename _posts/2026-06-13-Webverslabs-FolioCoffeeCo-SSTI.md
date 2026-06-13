@@ -62,6 +62,12 @@ This is the initial template we got, now first thing we should do is use this on
 
 We see that our username is returned back to us, having the brackets inside the code is already a huge indicator that this might be vulnerable to an SSTI , but the fact that the only thing that changes is the username is also an indicator that a Template is being used . 
 
+If we check Burp's History we see that the Preview botton sends a POST Request containing whatever we typed inside the Template Body parameter. 
+
+<img width="1514" height="764" alt="image" src="https://github.com/user-attachments/assets/a7cc5145-8878-4c41-9bef-78194d2c3f4c" />
+
+Maybe the Template_Body Parameter is vulnerable to an SSTI. 
+
 I already have a detailed section on my Web_App methdology for SSTI injections that i will be following : 
 
 ```bash
@@ -129,7 +135,7 @@ Now first let's inject our payload :
 
 <img width="1279" height="754" alt="image" src="https://github.com/user-attachments/assets/1cd7187c-4985-44be-8e25-4da6d2259212" />
 
-I injected it more than once , you don't need to do that since the server will take the entire request and execute it . 
+I injected it more than once , you don't need to do that since it is all sent inside the same parameter (template_body).
 
 <img width="1215" height="809" alt="image" src="https://github.com/user-attachments/assets/8fa059a6-c5ae-4e2a-a0d1-43e7e6538297" />
 
