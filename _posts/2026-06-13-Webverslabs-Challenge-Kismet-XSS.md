@@ -8,7 +8,7 @@ tags: [Webverselabs , Hard , Challenge , Web_Attacks ]
 
 ## Scenario : 
 
-Kismet is a small-town matchmaking service that still sends real letters. The online bio editor allows a short whitelist of tags for formatting — including <details>, for collapsible sections. The dev knew about markdown. He didn't know about ontoggle.
+Kismet is a small-town matchmaking service that still sends real letters. The online bio editor allows a short whitelist of tags for formatting — including details, for collapsible sections. The dev knew about markdown. He didn't know about ontoggle.
 
 
 ## Solution : 
@@ -67,7 +67,7 @@ Here we can view all the tags that can allow the injection of JS code .
 
 <img width="1360" height="789" alt="image" src="https://github.com/user-attachments/assets/6975089c-7bb1-4ec0-8c45-683335968234" />
 
-The <details> tag supports event handlers like ontoggle that can be used to execute JavaScript.
+The details tag supports event handlers like ontoggle that can be used to execute JavaScript.
 
 We can test these payloads : 
 
