@@ -1,6 +1,6 @@
 ---
 title: "Webverselabs DeployWare Challenge Command Injection "
-date: 2026-06-09 00:00:00 +0000
+date: 2026-06-13 12:00:00 +0000
 categories: [Webverselabs]
 tags: [Webverselabs , Hard , Challenge , Web_Attacks ]
 ---
