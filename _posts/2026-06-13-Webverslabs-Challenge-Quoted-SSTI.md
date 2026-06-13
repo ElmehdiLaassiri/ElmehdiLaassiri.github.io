@@ -1,6 +1,6 @@
 ---
 title: "Webverselabs Quoted Challenge SSTI  "
-date: 2026-06-13 00:00:00 +0000
+date: 2026-06-13 09:00:00 +0000
 categories: [Webverselabs]
 tags: [Webverselabs , Hard , Challenge , Web_Attacks ]
 ---
