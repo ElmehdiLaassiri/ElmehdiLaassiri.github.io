@@ -45,7 +45,7 @@ Again nothing useful here , just a static page containing different pipelines .
 
 <img width="1089" height="661" alt="image" src="https://github.com/user-attachments/assets/28c13d6d-ffe3-457c-a962-d09adc05f201" />
 
-Obviously the settings are pretty much useful to us as well . 
+Obviously the settings are pretty much useless to us as well . 
 
 **/Repos :**
 
