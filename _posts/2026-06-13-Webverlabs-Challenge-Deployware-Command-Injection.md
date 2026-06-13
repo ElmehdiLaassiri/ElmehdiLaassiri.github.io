@@ -67,7 +67,7 @@ Let's check our server to see if we get a callback :
 
 <img width="1743" height="757" alt="image" src="https://github.com/user-attachments/assets/1dc19a82-4aef-4d03-baa4-bda99342b365" />
 
-We do , and we see that the query made to our is : service=git-upload-pack .
+We do , and we see that the query made to our server is : service=git-upload-pack .
 
 Few assumptions here , the server is running a git command in the backend , so we can try to inject other commands to see we the server runs them as well . I tried a bunch of commands injection payloads : 
 
