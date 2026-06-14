@@ -17,7 +17,9 @@ Yardlines built their storefront on a long weekend in 2022. The category filter 
 
 <img width="1888" height="899" alt="image" src="https://github.com/user-attachments/assets/37bbe77a-352a-4dcf-8679-380d057e5d4c" />
 
-We first start by exploring the app just like a normal user would . Try and see different endpoints, features, etc... Then we check the Burp's History to see if we find any interesting requests, we're mainly looking for parameters that we can inject whether it be a parameter in the URL or a GET Request or inside the body of a POST Request . 
+We first start by exploring the app just like a normal user would . Try and see different endpoints, features, etc... 
+
+Then we check Burp's History to see if we find any interesting requests, we're mainly looking for parameters that we can inject whether it be a parameter in the URL or a GET Request or inside the body of a POST Request . 
 
 **/Shop :**
 
