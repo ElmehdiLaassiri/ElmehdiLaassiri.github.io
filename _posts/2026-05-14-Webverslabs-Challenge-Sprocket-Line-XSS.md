@@ -57,14 +57,12 @@ For this one , any of the Bypasses should work since this is a pretty simple one
 I choosed this one : 
 
 ```js
-<a href="jav&#x0A;ascript:alert('XSS');">Click Me</a>
-URL Encode it :
-<a+href%3d"jav+++ascript%3aalert('XSS')%3b">Click+Me</a>
+<a href="jav&#x0D;ascript:alert('XSS');">Click Me</a>
 ```
 
 <img width="1509" height="720" alt="image" src="https://github.com/user-attachments/assets/fe595978-27ce-49bb-935f-ec8f794898d0" />
 
-Make sure you URL encode everything since the field doesn't allow spaces . 
+Make sure you URL encode everything if you have space in your payload since the field doesn't allow spaces . 
 
 If you can't insert the payload directly : 
 
