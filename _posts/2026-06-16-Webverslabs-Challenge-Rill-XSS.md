@@ -13,8 +13,6 @@ Rill is a creek-conservation volunteer network. Their sign-up search has a 24-ch
 
 ## Solution : 
 
-We've completed too many XSS challenges so i will just speedrun this one a bit :)
-
 <img width="1664" height="858" alt="image" src="https://github.com/user-attachments/assets/c66b3f5a-ca16-49c7-91da-8e94ec7b2545" />
 
 As usual, we navigate the app, check different endpoints , check Burp's History to try and get a better understanding on how the app behaves. 
@@ -111,6 +109,16 @@ This triggers the XSS a well , if you want to try different paylaods, just reset
 <img width="1471" height="957" alt="image" src="https://github.com/user-attachments/assets/2cc153fc-19fe-45b2-a13a-132c2a00f810" />
 
 For this one i think we should just avoid script tags , and use event handlers instead and all our payloads should work .
+
+But based on the description i think the intended way was using a small XSS payload (les than 24) :
+
+<img width="1447" height="861" alt="image" src="https://github.com/user-attachments/assets/dbed85a1-6ff3-48de-af48-93265b147438" />
+
+These two are less than 24 : 
+
+<img width="1044" height="836" alt="image" src="https://github.com/user-attachments/assets/ec84ce30-2089-4bea-af93-46e84a9ff1b1" />
+
+And it worked perfectly ! 
 
 That was all for this challenge , see you in the next one :)
 
