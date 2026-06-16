@@ -1,6 +1,6 @@
 ---
 title: " Webverselabs Challenge Schematic GraphQL "
-date: 2026-06-16 09:00:00 +0000
+date: 2026-06-16 07:00:00 +0000
 categories: [Webverselabs]
 tags: [Webverselabs , Easy , Challenge , Web_Attacks ]
 ---
