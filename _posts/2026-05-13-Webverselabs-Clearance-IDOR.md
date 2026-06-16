@@ -1,5 +1,5 @@
 ---
-title: "Webverselabs Clearance Challenge IDOR "
+title: "Webverselabs Clearance Challenge GraphQL "
 date: 2026-05-12 00:00:00 +0000
 categories: [Webverselabs]
 tags: [Webverselabs , Medium , Challenge , IDOR ,GraphQL ]
