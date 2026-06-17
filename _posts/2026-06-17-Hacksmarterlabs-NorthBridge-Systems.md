@@ -281,7 +281,7 @@ nxc smb NORTHDC01 -u '_backupsvc' -p 'j0$QyPZ0JWzN2*iu^5' -M backup_operator
 
 <img width="1660" height="734" alt="image" src="https://github.com/user-attachments/assets/bc20f06d-da38-45e2-902e-22a354f5d46c" />
 
-Perfect , we have the Hash for the DC01$ which is the machine account , this can be used to perform a DCSYNC and dump the NTDS . The SAM We dumped contined an admin Hash but that is not the Domain Admin's hash , since that one is stored in the NTDS , SAM only holds local account hashes , luckily for us we were able to dump the machines acc for the DC and perform a DCSync that way :) 
+Perfect , we have the Hash for the DC01$ which is the machine account , this can be used to perform a DCSYNC and dump the NTDS . The SAM We dumped contained an admin Hash but that is not the Domain Admin's hash , since that one is stored in the NTDS , SAM only holds local account hashes , luckily for us we were able to dump the machines acc for the DC and perform a DCSync that way :) 
 
 Now let's dump the NTDS : 
 
