@@ -299,6 +299,6 @@ It gets blocked by the AV , we can either use WMIexec2 or use atexec as both wil
 
 Perfect we got our Root Flag :)
 
-That was all for this Lab. See you in the Next One !)
+That was all for this Lab. See you in the Next One :)
 
 
