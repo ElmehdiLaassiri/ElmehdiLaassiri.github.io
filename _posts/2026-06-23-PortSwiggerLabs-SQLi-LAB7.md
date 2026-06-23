@@ -1,6 +1,6 @@
 ---
 title: " PortSwiggerlabs: SQL injection UNION attack, determining the number of columns returned by the query "
-date: 2026-06-24 00:00:00 +0000
+date: 2026-06-23 00:00:00 +0000
 categories: [PortSwiggerLabs , SQL Injection]
 tags: [PortSwiggerLabs , SQLi , Challenge , Web_Attacks ]
 ---
