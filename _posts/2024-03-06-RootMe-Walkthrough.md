@@ -1,7 +1,7 @@
 ---
 title: "Try Hack Me RootMe Walkthrough"
 date: 2024-03-06 00:00:00 +0000
-categories: [Random]
+categories: [Random_Stuff hh]
 tags: [tryhackme, ctf, Pentesting , Walkthroughs]
 ---
 # RootMe Walkthrough (Detailed) | By Elmehdi Laassiri :
