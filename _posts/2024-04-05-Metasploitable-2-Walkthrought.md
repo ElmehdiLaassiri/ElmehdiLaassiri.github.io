@@ -1,7 +1,7 @@
 ---
 title: "Metasploitable 2 Walkthrough "
 date: 2024-04-15 00:00:00 +0000
-categories: [Walkthroughs]
+categories: [Random_Stuff hh]
 tags: [tryhackme, ctf, Pentesting, Walkthroughs]
 ---
 
