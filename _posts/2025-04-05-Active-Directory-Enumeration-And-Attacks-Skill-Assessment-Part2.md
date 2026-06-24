@@ -1,7 +1,7 @@
 ---
 title: "Active Directory Enumeration And Attacks Skill Assessment Part 2"
 date: 2024-04-05 00:00:00 +0000
-categories: [Walkthroughs]
+categories: [Random_Stuff hh]
 tags: [tryhackme, ctf, Hack The Box, Pentesting, Walkthroughs]
 ---
 
