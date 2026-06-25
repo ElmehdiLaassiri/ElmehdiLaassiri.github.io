@@ -32,5 +32,7 @@ A simple payload here will be enough to trigger the XSS .
 
 Perfect , once the XSS is triggered the lab should be solved .
 
+<img width="1453" height="639" alt="image" src="https://github.com/user-attachments/assets/b86805c3-1429-4cef-9b51-bebcf9274bb2" />
+
 That was it for this lab , see you in the next one :) 
 
