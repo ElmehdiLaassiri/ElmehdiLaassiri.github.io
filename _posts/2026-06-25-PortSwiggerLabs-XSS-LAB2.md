@@ -57,7 +57,7 @@ Now checking the comments :
 
 <img width="1009" height="384" alt="image" src="https://github.com/user-attachments/assets/5007d458-707d-4597-b0f5-6d007a0144a8" />
 
-We see that we can't see the payload since it was embedded in the HTML content .
+When the page is loaded, the stored script tag is injected directly into the HTML and executed by the browser, triggering alert(window.origin). Since script tags don't render visibly, we see the alert pop up rather than the payload appearing as text on the page.
 
 If we refresh the page it will execute again since this is a stored XSS so the payload isn't stored in the client browser but on the server instead . 
 
