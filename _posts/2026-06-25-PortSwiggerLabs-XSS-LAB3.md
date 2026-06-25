@@ -15,6 +15,10 @@ To solve this lab, perform a cross-site scripting attack that calls the alert fu
 
 ## Solution : 
 
+Quick thing to note before we start : 
+
+For DOM-based XSS, usually we're looking for two things: a sink, which renders or executes inserted data , document.write(), innerHTML, eval(), etc. But this by itself is not enough , we need the data being passed to the sink to be controlled by us, for example via window.location (parameters entered in the URL), document.cookie (injecting the cookie), etc.
+
 We have this search field where we can inject : 
 
 <img width="1400" height="691" alt="image" src="https://github.com/user-attachments/assets/07099d04-f7e5-40eb-9fca-a53739eeb544" />
