@@ -34,5 +34,9 @@ Perfect , once the XSS is triggered the lab should be solved .
 
 <img width="1453" height="639" alt="image" src="https://github.com/user-attachments/assets/b86805c3-1429-4cef-9b51-bebcf9274bb2" />
 
+Few things to note , since this is just a Reflected XSS , once we refresh the page , our payload will be gone and we need to inject the field once again . 
+
+So the only way a victim can be compromised is by visiting the link where we injected the XSS before , whereas if this was a stored XSS , once our payload is stored it will affect Every user who visits the application without the victim having to click our specific link or anything like that which makes Stored XSS much worse compared to a Reflected one . 
+
 That was it for this lab , see you in the next one :) 
 
