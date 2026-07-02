@@ -41,7 +41,7 @@ https://www.thehacker.recipes/web/config/http-request-smuggling/#practice
 
 Personally i like to follow this graph from **Jarno Timmermans** 
 
-<img width="1748" height="915" alt="image" src="https://github.com/user-attachments/assets/0cc2c00a-4071-4bff-86e7-15b42e093c62" />
+<img width="1859" height="934" alt="image" src="https://github.com/user-attachments/assets/9a90be80-cfa7-4f38-921c-dffcba4b90b2" />
 
 They both follow the same principle , we first send a request and check whether we get a Delay, Rejection ,etc . 
 
