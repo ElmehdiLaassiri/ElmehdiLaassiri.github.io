@@ -96,7 +96,7 @@ In our case , the TE.CL can be explained using this graph from **Jarno Timmerman
 
 The orange part in the graph is exactly what was stored in the buffer when sending the first request . Since we know the server uses CL , we can specify it to be 4 , and from there have the rest of the request stored in the buffer so that it gets appended to the next request (normal request).
 
--The appended request has 15 in the CL , while the entire request stored in the buffer has 10 bytes,  which means only 5 bytes of the normal request will be appended , that's exactly "GET /"  and the rest will be ignored . 
+- The appended request has 15 in the CL , while the entire request stored in the buffer has 10 bytes,  which means only 5 bytes of the normal request will be appended , that's exactly "GET /"  and the rest will be ignored . 
 
 *Don't worry if this doesn't make sense to you yet, the practical example should make things clear* :
 
@@ -165,7 +165,7 @@ We see that we're getting a delay . Since the backend is waiting for the 6 bytes
 \r\n
 ```
 
-but for the front end the request has already ended after the terminating character (0\r\n) so it will drop the rest and the X is never sent to the backend server , so to confirm that the backend uses CL we should get a delay since X it is dropped, the backend never gets the 6th by which causes a delay so this confirms that the backend is using CL not TE . And eventually we will get a time out error : 
+but for the front end the request has already ended after the terminating character (0\r\n) so it will drop the rest and the X is never sent to the backend server , so to confirm that the backend uses CL we should get a delay since X it is dropped, the backend never gets the 6th byte which causes a delay so this confirms that the backend is using CL not TE . And eventually we will get a time out error : 
 
 <img width="1475" height="514" alt="image" src="https://github.com/user-attachments/assets/74854646-bcae-43cd-9058-13740c3d3c42" />
 
