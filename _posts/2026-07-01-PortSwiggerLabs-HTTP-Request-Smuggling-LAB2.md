@@ -74,7 +74,7 @@ And since the front end uses TE , and the backend uses CL , this is an indicatio
 
 **More explanation :** 
 
-The first request we sent had *Transfer-Encoding: chunked* But with no 0 to terminate the request , so in case the front end Rejects it , this proves that it uses TE . 
+The first request we sent had *Transfer-Encoding: chunked*  But with no 0\r\n to terminate the request , so in case the front end Rejects it , this proves that it uses TE . 
 
 Now to Determine the backend we send a different request , this time we send a request with 6 bytes , but we put a terminating character at the 5th byte , so that only 5 bytes are sent to the backend .
 
