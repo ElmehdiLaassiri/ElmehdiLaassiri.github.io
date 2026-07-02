@@ -34,7 +34,7 @@ First we send the request to Repeater :
 
 Now first we need to detect if the app is vulnerable to HTTP Request Smuggling : I always like to follow this graph from **Jarno Timmermans** : 
 
-<img width="1748" height="915" alt="image" src="https://github.com/user-attachments/assets/0cc2c00a-4071-4bff-86e7-15b42e093c62" />
+<img width="1859" height="934" alt="image" src="https://github.com/user-attachments/assets/9a90be80-cfa7-4f38-921c-dffcba4b90b2" />
 
 But you can use this guide from HackerReciepe : 
 
