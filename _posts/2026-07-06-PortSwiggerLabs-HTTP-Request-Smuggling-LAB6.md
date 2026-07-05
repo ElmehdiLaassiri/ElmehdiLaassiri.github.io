@@ -1,6 +1,6 @@
 ---
 title: " PortSwiggerlabs: Exploiting HTTP request smuggling to capture other users' requests"
-date: 2026-07-05 00:00:00 +0000
+date: 2026-07-06 00:00:00 +0000
 categories: [PortSwiggerLabs , HTTP Request Smuggling ]
 tags: [PortSwiggerLabs , HTTP Request Smuggling , Challenge , Web_Attacks ]
 ---
