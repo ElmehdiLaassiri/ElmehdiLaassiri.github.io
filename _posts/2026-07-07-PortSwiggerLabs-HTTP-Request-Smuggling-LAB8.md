@@ -75,7 +75,7 @@ This is because even when we downgraded to HTTP/1.1 it still used HTTP/2 to comm
 
 **Quick note on H2.TE:**
 
-The setup here is slightly different — the front-end accepts HTTP/2 but downgrades to HTTP/1.1 when talking to the back-end. Normally HTTP/2 doesn't care about Transfer-Encoding since it has its own binary framing, but if you manually inject a TE: chunked header inside the HTTP/2 request, the front-end just ignores it — but when it downgrades, that header comes along for the ride and the back-end sees it and starts parsing the body as chunked. From there it's the same idea, leftover sits in the buffer, next request gets poisoned.
+The setup here is slightly different, the front-end accepts HTTP/2 but downgrades to HTTP/1.1 when talking to the back-end. Normally HTTP/2 doesn't care about Transfer-Encoding since it has its own binary framing, but if you manually inject a TE: chunked header inside the HTTP/2 request, the front-end just ignores it but when it downgrades, that header comes along for the ride and the back-end sees it and starts parsing the body as chunked. From there it's the same idea, leftover sits in the buffer, next request gets poisoned.
 
 Now back to the lab : 
 
