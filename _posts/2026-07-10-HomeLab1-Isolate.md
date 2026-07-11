@@ -19,7 +19,15 @@ The chain mixes classic and recent CVEs  from Drupalgeddon2 to fresh 2026 kernel
 
 Quick version of the full attack path: 
 
-Foothold on **WEB01** via a React Server Components deserialization bug (CVE-2025-55182), then root via a kernel LPE, CopyFail, before pivoting into the internal network with Ligolo-ng, exposing four more machines. From there, **Box 2** falls to Drupalgeddon2 (CVE-2018-7600) for a www-data shell, escalated to root via another kernel LPE, DirtyFrag. **Box 3** goes down next through a WordPress plugin LFI-to-RCE chain (CVE-2023-6553, PHP filter chains) for www-data, followed by a misconfigured SUID find binary for root. **Box 4** is a pure misconfig box, where a no_root_squash NFS share leaks Windows credentials outright, while Samba's usermap script (CVE-2007-2447), an unauthenticated Redis instance, and a passwordless sudo rule allowing the leaked user to run nano as root (GTFOBins) all offer independent routes straight to root anyway. Those leaked credentials get reused on **Box 5**, a Windows workstation, where SMB access via NetExec enables RDP remotely, and RoguePlanet, a Windows Defender race condition, escalates to SYSTEM. The same credentials are reused once more on the Domain Controller **(Box 6)** as a valid domain account, triggering an ADCS ESC8 chain, where PetitPotam coerces the DC to authenticate, ntlmrelayx relays that auth to the undefended Web Enrollment endpoint, Certipy turns the resulting certificate into a TGT via PKINIT, and a final DCSync dumps every credential in the domain, including krbtgt.
+- Foothold on **WEB01** via a React Server Components deserialization bug (CVE-2025-55182), then root via a kernel LPE, CopyFail, before pivoting into the internal network with Ligolo-ng, exposing four more machines. From there.
+
+- **Box 2** falls to Drupalgeddon2 (CVE-2018-7600) for a www-data shell, escalated to root via another kernel LPE, DirtyFrag. **Box 3** goes down next through a WordPress plugin LFI-to-RCE chain (CVE-2023-6553, PHP filter chains) for www-data, followed by a misconfigured SUID find binary for root.
+
+- **Box 4** is a pure misconfig box, where a no_root_squash NFS share leaks Windows credentials outright, while Samba's usermap script (CVE-2007-2447), an unauthenticated Redis instance, and a passwordless sudo rule allowing the leaked user to run nano as root (GTFOBins) all offer independent routes straight to root anyway.
+
+- Those leaked credentials get reused on **Box 5**, a Windows workstation, where SMB access via NetExec enables RDP remotely, and RoguePlanet, a Windows Defender race condition, escalates to SYSTEM.
+
+- The same credentials are reused once more on the Domain Controller **(Box 6)** as a valid domain account, triggering an ADCS ESC8 chain, where PetitPotam coerces the DC to authenticate, ntlmrelayx relays that auth to the undefended Web Enrollment endpoint, Certipy turns the resulting certificate into a TGT via PKINIT, and a final DCSync dumps every credential in the domain, including krbtgt.
 
 
 <img width="1600" height="1000" alt="svgviewer-png-output" src="https://github.com/user-attachments/assets/9c9890b8-dc6f-42c1-b105-5e65c0f35cf1" />
@@ -129,8 +137,197 @@ All six boxes were built in VMware. Each machine is deliberately pinned to a spe
 
 ### Box 1 : Fail2Copy : 
 
+#### ISO Installation : 
+
 WEB01 runs on Debian 12 (Bookworm), with the kernel downgraded and pinned to a version vulnerable to CopyFail. On top of the OS, we install Node.js and npm, and deploy a Next.js application vulnerable to CVE-2025-55182, exposed on port 3000.
 
+Now first we need the Debian Image , i downloaded it from this link : 
 
+```bash
+https://cdimage.debian.org/cdimage/archive/12.12.0/amd64/iso-dvd/
+```
 
+Once we Download it , we create a new VM : 
+
+<img width="1159" height="513" alt="image" src="https://github.com/user-attachments/assets/7b2dc78b-2e15-46ab-8c64-4af7d55c5a01" />
+
+Now once we start our VM , we can use Normal install instead of the graphical one to save time : 
+
+<img width="1033" height="583" alt="image" src="https://github.com/user-attachments/assets/28520276-c15b-40bb-ac7a-9cbfdc46fd53" />
+
+The installation is Pretty straight forward , Few things we will note : 
+
+Hostname : 
+
+<img width="1020" height="329" alt="image" src="https://github.com/user-attachments/assets/2bf732d5-049e-4fbf-85c9-f8f34b32a2f3" />
+
+For the Domain name , we will keep it empty for now : 
+
+<img width="960" height="461" alt="image" src="https://github.com/user-attachments/assets/d2e95c28-c694-423f-ad81-7b3fed7ec39f" />
+
+Set up your root Password ;
+
+<img width="1034" height="415" alt="image" src="https://github.com/user-attachments/assets/a12d1518-e882-401b-ac88-c5d218f15307" />
+
+For the user we use : 
+
+```bash
+azerty : azerty
+```
+
+<img width="913" height="290" alt="image" src="https://github.com/user-attachments/assets/90a96a8a-e53f-4779-816d-c51e7c704f9d" />
+
+Timezone in our case is Eastern . 
+
+For the Disk : 
+
+<img width="965" height="373" alt="image" src="https://github.com/user-attachments/assets/5cab424c-2bd6-4299-b9a6-4523269e57e7" />
+
+For the Patitioning scheme : 
+
+<img width="918" height="366" alt="image" src="https://github.com/user-attachments/assets/4ab7969a-cc57-4c60-a2a7-1eb98d5e9a65" />
+
+Then we just confirm everything: 
+
+<img width="1021" height="367" alt="image" src="https://github.com/user-attachments/assets/e3243468-5c6e-46ff-888f-28f68a7c1ed7" />
+
+For the Extra Media Installations : 
+
+<img width="925" height="423" alt="image" src="https://github.com/user-attachments/assets/13e4d802-833c-414c-bf1e-35a4e55293eb" />
+
+We don't really need them for this lab . 
+
+Since we need to install other dependencies and packages we need to enable the Network mirroring : 
+
+<img width="951" height="358" alt="image" src="https://github.com/user-attachments/assets/3615902d-5fc3-4f58-83bb-67a73d189b84" />
+
+For the mirror it can be anything you choose really : 
+
+<img width="940" height="523" alt="image" src="https://github.com/user-attachments/assets/f0839ab4-5712-45f6-b59d-58fbf55277fa" />
+
+Also just go with the default one : 
+
+<img width="885" height="366" alt="image" src="https://github.com/user-attachments/assets/83a1de25-0376-4ec8-882f-7d61ad2760e4" />
+
+We won't be needing any Proxies for this one :
+
+<img width="971" height="274" alt="image" src="https://github.com/user-attachments/assets/9112f0e0-07fa-476a-abb9-ffdab86c05a9" />
+
+Of course we need to add SSH so that we don't have to intall it manually later . 
+
+<img width="910" height="372" alt="image" src="https://github.com/user-attachments/assets/13cc89f8-2762-4deb-8849-4b3e099d38bc" />
+
+We should also install the Grub Boot Loader as well : 
+
+<img width="995" height="338" alt="image" src="https://github.com/user-attachments/assets/a552261c-243c-42e6-9934-e88bcd3bda08" />
+
+Then we specify the Device , we already put everything is 1 partition during Insallation so we should only see 1 : 
+
+<img width="984" height="263" alt="image" src="https://github.com/user-attachments/assets/b9a0d028-35d8-4c01-b63c-62f632d83a38" />
+
+Finally we select the Reboot option and we should be set : 
+
+<img width="995" height="306" alt="image" src="https://github.com/user-attachments/assets/9fb5742c-49be-42be-852b-7b44863e66c9" />
+
+#### Scenario  : 
+
+##### Priv Esc : 
+
+Now that everything is set , first thing we should setup is the path for the privilege escalation.
+
+First we should check the version of the Kernel that was installed : 
+
+<img width="1484" height="379" alt="image" src="https://github.com/user-attachments/assets/8fdc0252-9b46-4a61-9086-5bf4120e52fc" />
+
+This version is patched and not vulnerable to CopyFail . 
+
+So we will first start by installing a kernel version that is vulnerable . We first list all the available kernels that are installed . 
+
+```bash
+dpkg --list | grep linux-image
+```
+
+<img width="856" height="316" alt="image" src="https://github.com/user-attachments/assets/45797576-3b94-4d25-99af-1899e9c6e5c9" />
+
+Perfect we see that we already have a kernel version that is vulnerable , already installed we just need to Boot from it . 
+
+```bash
+linux-image-6.1.0-39-amd64
+```
+
+In case you don't find it , you can easily install it . First update the packages , then check list all available kernels that we can install :
+
+```bash
+apt update
+apt search linux-image-6.1
+```
+
+<img width="1237" height="704" alt="image" src="https://github.com/user-attachments/assets/89fc81d5-5690-4685-8ac5-5ed8b757906a" />
+
+We're looking for Old versions for this one : 
+
+```bash
+apt install linux-image-6.1.0-39-amd64 
+```
+
+you should see this error : 
+
+```bash
+Media change: please insert the disc labeled                                                                                                                                                                      
+ 'Debian GNU/Linux 12.12.0 _Bookworm_ - Official amd64 DVD Binary-1 with firmware 20250906-15:05'
+in the drive '/media/cdrom/' and press [Enter]
+````
+
+This means that APT is trying to fetch some dependencies from the Debian installation DVD, it means that that /etc/apt/sources.list still contained a cdrom: entry at that point.
+
+You fix it by disabling the DVD repository and switching back to the official Debian mirrors:
+
+```bash
+nano /etc/apt/sources.list
+
+===> Then you comment the First Repo :
+# deb cdrom:[Debian GNU/Linux 12.12.0 _Bookworm_ ...]
+```
+
+Make sure you keep the other regular repos : 
+
+<img width="1383" height="381" alt="image" src="https://github.com/user-attachments/assets/aba980d7-ed9f-4425-83db-1bbc61b1ce5a" />
+
+From there we update the package cache and retry installing it : 
+
+```bash
+apt update
+apt install linux-image-6.1.0-39-amd64 
+```
+
+<img width="981" height="445" alt="image" src="https://github.com/user-attachments/assets/d53b67f9-eb7b-4151-9cf4-e2c6b978ec53" />
+
+Once we have the vulnerable kernel , we need to Boot it from Grub  . By default the bootloader will use the latest Kernel (updated one) so we first need to make sure we show the Grub Loader Menu and make sure we boot using the old Kernel : 
+
+First check if Grub Menu is hidden and how long it takes before it boots : 
+
+```bash
+grep GRUB_TIMEOUT_STYLE /etc/default/grub
+grep GRUB_TIMEOUT /etc/default/grub
+```
+
+<img width="678" height="215" alt="image" src="https://github.com/user-attachments/assets/8a4c34ec-82df-4fec-aed2-1bb85035327c" />
+
+It's not hidden , and we have 5 Sec , before it boots with default entry : 
+
+Now we just reboot it and Select Advanced Options in the Grub Loader menu : 
+
+<img width="902" height="294" alt="image" src="https://github.com/user-attachments/assets/fa3fa1f1-96da-481e-89cc-024ab2463196" />
+
+From there we slect the Vulnerable Kernel (.39) and boot with it : 
+
+Now if we check the Kernel version : 
+
+<img width="1227" height="301" alt="image" src="https://github.com/user-attachments/assets/4b7c1a8a-9b1e-4b51-9075-0b1bcd65042a" />
+
+We see that it is the one vulnerable to CopyFail . 
+
+##### Foothold : 
+
+Now moving on the React App :
 
