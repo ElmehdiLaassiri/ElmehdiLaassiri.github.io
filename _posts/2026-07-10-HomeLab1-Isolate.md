@@ -704,9 +704,345 @@ Fedora 44: 6.19.14-300.fc44.x86_64
 
 In our case we will use the Ubuntu 24.04.4 . 
 
-Here is the Link to Download the Image : 
+Here is the Link to Download the ISO : 
 
 ```bash
 https://releases.ubuntu.com/noble/
 ```
 
+Once downloaded , create a new Virtual machine .
+
+<img width="1076" height="510" alt="image" src="https://github.com/user-attachments/assets/7db54d5f-99b3-4d11-8db7-84af8ed87999" />
+
+Power on the VM so that we can start the Installation : 
+
+<img width="1245" height="740" alt="image" src="https://github.com/user-attachments/assets/a95a23b3-0b8c-404d-b409-a71140419197" />
+
+Now we just install Ubuntu : 
+
+<img width="1070" height="423" alt="image" src="https://github.com/user-attachments/assets/afbc7cf3-d735-4e67-91de-327854b9c5ae" />
+
+We will keep the default selection : 
+
+<img width="1065" height="363" alt="image" src="https://github.com/user-attachments/assets/0b1ab05d-304b-4f71-bae7-58bed12f1264" />
+
+For Third party software and media , we won't be needing that for this lab : 
+
+<img width="1068" height="562" alt="image" src="https://github.com/user-attachments/assets/c64abd43-dff8-4d24-9e2d-55914c4eec36" />
+
+For the Disk setup select the first one , we will keep things simple : 
+
+<img width="1120" height="588" alt="image" src="https://github.com/user-attachments/assets/2d99219c-b387-4e92-a956-c7c683511b64" />
+
+For the user :
+
+<img width="1138" height="730" alt="image" src="https://github.com/user-attachments/assets/6288141b-560f-4af2-9972-1956d9b6a06f" />
+
+We don't need AD for this one . 
+
+Finally we just start the installation, it make take a while . 
+
+<img width="1081" height="653" alt="image" src="https://github.com/user-attachments/assets/ae88a23d-7779-4e00-8fc1-7432b6e8e700" />
+
+Once the installation is completed , restart the system :
+
+<img width="1140" height="710" alt="image" src="https://github.com/user-attachments/assets/3cc43959-e194-4ae1-a7a3-f7cd74f4d463" />
+
+Now Once we start the machine , to enable the Copy/Paste we need to first install VMware Tools :
+
+```bash
+sudo apt update
+sudo apt install open-vm-tools open-vm-tools-desktop -y
+sudo reboot
+``` 
+
+#### Scenario  : 
+
+##### Priv Esc : 
+
+We chose this Ubuntu and kernel version because it is vulnerable to DirtyFrag (CVE-2026-43284), allowing us to perform local privilege escalation without requiring any additional kernel modifications. Pinning the kernel version ensures that the exploit remains reproducible throughout the lab.
+
+##### FootHold : 
+
+For the initial compromise, the machine hosts Drupal 7.57, running on a standard LAMP stack:
+
+- Linux as the operating system.
+- Apache as the web server.
+- MySQL/MariaDB as the database backend.
+- PHP as the scripting language powering Drupal.
+
+Before deploying Drupal, we install the packages required by the LAMP stack:
+
+```bash
+sudo apt update
+sudo apt install apache2 mariadb-server php php-mysql \
+php-gd php-xml php-mbstring php-curl wget unzip -y
+```
+
+<img width="1370" height="387" alt="image" src="https://github.com/user-attachments/assets/ce5a50c0-5b99-49f2-8169-64ddae02767e" />
+
+Once the dependencies are installed, we download and deploy Drupal 7.57, a version vulnerable to CVE-2018-7600 (Drupalgeddon2), which allows unauthenticated remote code execution through Drupal's Form API.
+
+**Download Drupal:**
+
+```bash
+cd /tmp
+wget https://ftp.drupal.org/files/projects/drupal-7.57.tar.gz
+```
+
+**Extract the archive:**
+
+```bash
+tar -xzf drupal-7.57.tar.gz
+```
+
+The extracted directory contains the Drupal application files, including PHP code, modules, themes, and configuration files.
+
+We need to move Drupal into Apache's web directory:
+
+```bash
+sudo mv drupal-7.57 /var/www/html/drupal
+```
+
+Apache serves websites from /var/www/html, so placing Drupal here makes it accessible through the browser.
+
+**Setting Drupal File Permissions**
+
+First we change ownership of the Drupal directory:
+
+```bash
+sudo chown -R www-data:www-data /var/www/html/drupal
+```
+
+Apache runs under the www-data account. Giving ownership to this user allows Drupal to write required files such as caches, uploaded content, and configuration files.
+
+Then we set directory permissions:
+
+```bash
+sudo find /var/www/html/drupal -type d -exec chmod 755 {} \;
+sudo find /var/www/html/drupal -type f -exec chmod 644 {} \;
+```
+
+This ensures directories can be accessed while files remain appropriately restricted.
+
+<img width="1228" height="573" alt="image" src="https://github.com/user-attachments/assets/8690d756-c3b9-4d6e-b9c8-d80a93e33bfa" />
+
+Now we should setup Apache to serve our app : 
+
+**Configuring Apache**
+
+First we create a dedicated Apache configuration for Drupal:
+
+```bash
+sudo nano /etc/apache2/sites-available/drupal.conf
+```
+
+Add:
+
+```bash
+<VirtualHost *:80>
+
+    ServerAdmin webmaster@localhost
+    DocumentRoot /var/www/html/drupal
+
+    <Directory /var/www/html/drupal>
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+</VirtualHost>
+```
+
+This tells Apache where Drupal is installed and allows Drupal's .htaccess file to control URL rewriting and application settings.
+
+Then we Enable Apache URL rewriting :
+
+```bash
+sudo a2enmod rewrite
+```
+
+Drupal uses URL rewriting for clean URLs and proper routing.
+
+From there we should disable the default Apache page:
+
+```bash
+sudo a2dissite 000-default.conf
+```
+
+Then we enable the Drupal site:
+
+```bash
+sudo a2ensite drupal.conf
+```
+
+Then Finally we just Restart Apache:
+
+```bash
+sudo systemctl restart apache2
+```
+
+<img width="1103" height="611" alt="image" src="https://github.com/user-attachments/assets/5d820870-38e5-46bc-b728-0653589a32ce" />
+
+At this point Apache is configured to serve the Drupal installation instead of the default website.
+
+To test this , we can try curl on our localhost :
+
+<img width="1020" height="830" alt="image" src="https://github.com/user-attachments/assets/9f53af8b-7840-4b77-b788-f960d404489c" />
+
+We see that we are able to curl the Drupal directory . But we get an error . 
+
+This is normal since Drupal 7.X usually uses PHP 7.4 not 8.3 that was installed by default . 
+
+We need to Downgrade to php7.4 :
+
+On Ubuntu 22.04/24.04, PHP 7.4 is not in the default repositories, so you need the PHP repository:
+
+```bash
+php -v  # you should see 8.3
+sudo apt install software-properties-common -y
+```
+
+Then we add the repository : 
+
+```bash
+sudo add-apt-repository ppa:ondrej/php
+sudo apt update
+```
+
+Then we install php7.4 :
+
+```bash
+sudo apt install php7.4 php7.4-mysql php7.4-gd \
+php7.4-xml php7.4-mbstring php7.4-curl -y
+```
+
+Then we disable php8.3 and enable 7.4 : 
+
+```bash
+sudo a2dismod php8.3
+sudo a2enmod php7.4
+sudo systemctl restart apache2 #To reset the conf 
+```
+
+Now we check again : 
+
+```bash
+php -v
+```
+
+It's okey if you see 8.3 , this just means that our command-line PHP is still PHP 8.3.
+
+We need to check what Apache is using.
+
+```bash
+ls -la /etc/apache2/mods-enabled/ | grep php
+```
+
+<img width="1057" height="420" alt="image" src="https://github.com/user-attachments/assets/bc4fb056-6b51-4952-9430-fd8ae96baa7a" />
+
+Now we create a test php file :
+
+```bash
+sudo nano /var/www/html/drupal/test.php
+```
+
+We put this : 
+
+```php
+<?php
+phpinfo();
+?>
+```
+
+Then we check the php version : 
+
+```bash
+curl http://localhost/test.php | grep "PHP Version"
+```
+ 
+<img width="1434" height="833" alt="image" src="https://github.com/user-attachments/assets/ba9d3a5e-73aa-4e25-92c3-24b391bf7e02" />
+
+Perfect this confirms it . 
+
+Now if we try accessing the install.php we should get a 200 : 
+
+<img width="1221" height="746" alt="image" src="https://github.com/user-attachments/assets/8e4d64ec-1ed6-4a64-b9e2-c3f70e8b1c1d" />
+
+**Configuring the DB :**
+
+First we create the Drupal database
+
+Drupal stores its data (users, configuration, content, modules) inside MariaDB. We create a dedicated database and user for Drupal instead of using the MariaDB root account.
+
+```sql
+# We first open MariaDB:
+ 
+sudo mysql
+
+# Create the database:
+
+CREATE DATABASE drupal;
+
+# Create a database user:
+
+CREATE USER 'drupaluser'@'localhost' IDENTIFIED BY 'DrupalPassword123!';
+
+# Give Drupal permission to use the database:
+
+GRANT ALL PRIVILEGES ON drupal.* TO 'drupaluser'@'localhost';
+
+# Apply the changes:
+
+FLUSH PRIVILEGES;
+EXIT;
+```
+
+<img width="1031" height="551" alt="image" src="https://github.com/user-attachments/assets/e13590d2-0f72-4ba9-a6cf-7f14760c8e69" />
+
+**Drupal Installation :**
+
+Now to complete the installation , we should open our browser and navigate to localhost or /install.php : 
+
+<img width="1144" height="561" alt="image" src="https://github.com/user-attachments/assets/060c495e-b696-4429-8c2c-92e41d071f93" />
+
+For the Installation profile : we choose the stantard one : 
+
+For the DB we will enter the DB we setup from earlier :
+
+<img width="1045" height="566" alt="image" src="https://github.com/user-attachments/assets/1abff5eb-7bb2-409b-9d9d-63066bd0dae9" />
+
+For the Site Information :
+
+```bash
+# Site name:
+DirtyGeddon Lab
+
+#Site email:
+admin@isolate.local
+
+# Administrator account !
+Username:
+admin
+
+Password:
+Password@123456789
+```
+
+<img width="1155" height="699" alt="image" src="https://github.com/user-attachments/assets/e93ed8ce-f11f-48c2-9ddd-e6956085317a" />
+
+Once we hit Finish we should be able to navigate to our Drupal Website :
+
+<img width="1242" height="795" alt="image" src="https://github.com/user-attachments/assets/940869a3-ab74-4586-a4e3-895299561384" />
+
+We can also confirm the version by checking the file : "/var/www/html/drupal/includes/bootstrap.inc"
+
+<img width="1294" height="324" alt="image" src="https://github.com/user-attachments/assets/c4fa6972-2a40-4f34-95d4-6635e859ea37" />
+
+This confirms that we have Drupal7.57. We can also check this from our Kali machine but that's for another section . 
+
+For now Box 2 is done , let's move to Box 3 : 
+
+
+### Box 3 : Backup : 
+
+#### ISO Installation : 
