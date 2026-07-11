@@ -329,5 +329,383 @@ We see that it is the one vulnerable to CopyFail .
 
 ##### Foothold : 
 
-Now moving on the React App :
+Now moving on to building the vulnerable Next.js application.
+
+First, we need to install the JavaScript development environment.
+
+The main components we need are:
+
+- JavaScript (JS): The programming language used to write the application logic.
+- Node.js: The runtime environment that allows JavaScript code to execute outside of the browser.
+- npm (Node Package Manager): The package manager included with Node.js, used to install and manage application dependencies.
+- Next.js: The framework used to build our application, based on React.
+- React: The library responsible for creating the user interface components.
+
+Before creating the vulnerable application, we need to install Node.js and npm on our Debian machine.
+
+```bash
+apt update
+apt install nodejs npm -y
+```
+
+To verify : 
+
+```bash
+node --version
+npm --version
+```
+
+<img width="1161" height="358" alt="image" src="https://github.com/user-attachments/assets/b9c1f91d-f247-4956-be8f-c03d312a4c6b" />
+
+Now that Node.js and npm are installed, we can create the application that will simulate the vulnerable web service.
+
+For realism, the application should not run as root. In a real-world deployment, web applications are usually executed under a dedicated service account with limited permissions.
+
+First, we create a dedicated user for the application:
+
+```bash
+useradd -m -s /bin/bash reactlab
+passwd reactlab # To give the user a password
+su - reactlab
+id # Verify 
+```
+
+<img width="1056" height="383" alt="image" src="https://github.com/user-attachments/assets/082441d4-4890-4cef-912e-b2661e56e838" />
+
+Now we create the app : 
+
+First we initialize the Node.js project :
+
+```bash
+npm init -y
+```
+
+npm init creates the initial configuration file for a Node.js project.
+
+After running this command, a file called: *package.json* is created.
+
+<img width="1193" height="514" alt="image" src="https://github.com/user-attachments/assets/a4dddd82-914d-4b70-b1fb-054d28dc69d7" />
+
+package.json is the central configuration file of a Node.js application. It contains:
+
+Project information (name, version, description)
+Available commands (scripts)
+Installed dependencies and their versions
+
+For example, later it will tell npm how to start our application:
+
+```js
+"scripts": {
+  "dev": "next dev"
+}
+```
+
+Now we install the components required to run our vulnerable application:
+
+```bash
+npm install next@15.0.4 react@19.0.0 react-dom@19.0.0
+```
+
+This installs three packages:
+
+**Next.js** (next@15.0.4)
+
+Next.js is the framework responsible for running the web application.
+
+It provides:
+
+- The web server
+- Routing
+- Server-side rendering
+- React Server Components support
+
+This is the component exposing the vulnerable server-side functionality used in this lab.
+
+**React** (react@19.0.0)
+
+React is the UI library used by Next.js.
+
+It allows developers to build applications using reusable components.
+
+Example:
+
+```js
+<h1>Forged.corp</h1>
+```
+
+is a React component output.
+
+**React DOM** (react-dom@19.0.0)
+
+React DOM provides the integration between React and the web environment.
+
+In a browser application, it is responsible for rendering React components into HTML.
+
+After installation, npm creates:
+
+- node_modules/
+- package.json
+- package-lock.json
+
+<img width="1134" height="599" alt="image" src="https://github.com/user-attachments/assets/5c8dd7a7-a94f-4243-b0a9-aa7e98604d23" />
+
+**node_modules :**
+
+This directory contains the actual source code of all installed dependencies.
+
+For example:
+
+```bash
+node_modules/
+ ├── next/
+ ├── react/
+ └── react-dom/
+````
+
+<img width="926" height="276" alt="image" src="https://github.com/user-attachments/assets/39002ccd-35e7-45f0-aa3f-d43f5da5b975" />
+
+**Package-lock.json :** 
+
+This file records the exact versions of every installed dependency.
+
+It ensures that if someone else downloads the project later, they install the same versions and reproduce the same environment.
+
+To confirm the vulnerable versions were installed : 
+
+```bash
+npm list next react react-dom
+```
+
+Expected Result : 
+
+```bash
+reactlab@1.0.0 /home/reactlab
+├─┬ next@15.0.4
+│ ├── react-dom@19.0.0 deduped
+│ ├── react@19.0.0 deduped
+│ └─┬ styled-jsx@5.1.6
+│   └── react@19.0.0 deduped
+├─┬ react-dom@19.0.0
+│ └── react@19.0.0 deduped
+└── react@19.0.0
+```
+
+<img width="995" height="398" alt="image" src="https://github.com/user-attachments/assets/24e9ba05-b8e1-4c31-b2e8-b3a38871d83c" />
+
+This step is important because npm can sometimes install newer compatible versions if versions are not explicitly pinned.
+
+Now back to our app directory , the structure should look like this :
+
+```bash
+reactlab@Fail2Copy:~$ pwd
+/home/reactlab
+reactlab@Fail2Copy:~$ ls
+node_modules  package.json  package-lock.json
+reactlab@Fail2Copy:~$ 
+```
+
+**Next.js** provides two routing systems:
+
+- Pages Router (older)
+- App Router (newer)
+
+For this lab, we use the App Router because it uses React Server Components.
+
+First we create the application directory:
+
+```bash
+mkdir app
+```
+
+The project now looks like:
+
+```bash
+React-app/
+├── app/
+├── package.json
+├── package-lock.json
+└── node_modules/
+```
+
+Now let's Create the main page :
+
+**Create:**
+
+```bash
+nano app/page.jsx
+```
+
+The file *app/page.jsx* represents the main page of the application.
+
+In Next.js App Router:
+
+- The folder name defines the route.
+- The file page.jsx defines what is displayed.
+
+For example:
+
+```bash
+app/page.jsx
+==> becomes:
+http://localhost:3000/
+```
+
+Feel free to customize your UI as you want , i won't be pasting the entire Front end code since it won't be necessary , but anything will be good for this demo really .
+
+Now moving on to the Layout , Creating the root layout
+
+The layout file defines the HTML structure shared by all pages.
+
+**Create:**
+
+```bash
+nano app/layout.jsx
+```
+
+Inside the file Add:
+
+```js
+export const metadata = {
+  title: "ISOLATE Cybersecurity",
+  description: "Advanced cybersecurity research and defense platform",
+};
+
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+      </body>
+    </html>
+  );
+}
+```
+
+Now for some styling (Not needed but in case you wanted to add it ) :
+
+Create the global CSS file:
+
+```bash
+nano app/globals.css
+```
+
+Add :
+
+```css
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #050816;
+.....
+
+```
+
+**Importing the CSS file :**
+
+```bash
+nano app/layout.jsx
+```
+
+Add this at the top:
+
+```js
+import "./globals.css";
+```
+
+The file should now start with:
+
+```js
+import "./globals.css";
+
+export const metadata = {
+  title: "ISOLATE Cybersecurity",
+  description: "Advanced cybersecurity research and defense platform",
+};
+....
+```
+
+<img width="999" height="830" alt="image" src="https://github.com/user-attachments/assets/7acc653b-6bf2-4eaa-a2da-f7346a085ad0" />
+
+Add the npm scripts
+
+Edit the **Package.json** file :
+
+```bash
+nano package.json
+```
+
+Make sure the scripts section contains:
+
+```bash
+"scripts": {
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start"
+}
+```
+
+These commands control how Next.js runs:
+
+npm run dev → development server
+npm run build → creates production build
+npm run start → starts production server
+Start the vulnerable application
+
+Now checking the structure of Folders , it should look like this : 
+
+```bash
+React-app/
+├── app/
+│   ├── page.jsx
+│   ├── layout.jsx
+│   └── globals.css
+├── package.json
+├── package-lock.json
+└── node_modules/
+```
+
+<img width="886" height="351" alt="image" src="https://github.com/user-attachments/assets/1eed94f4-21d0-4775-9498-7c2aff386c1b" />
+
+Run as the low-privileged user:
+
+```bash
+npm run dev
+```
+
+<img width="689" height="332" alt="image" src="https://github.com/user-attachments/assets/d5d9ea98-dcfe-43d2-babb-f6115cfb9179" />
+
+Now if we visit the localhost port 3000 : 
+
+<img width="1830" height="858" alt="image" src="https://github.com/user-attachments/assets/51fb8562-d9a4-42c7-af9c-1b637e10d228" />
+
+Our app is running perfectly . And we can access it from our Kali machine (But that's for the upcoming section) .
+
+Now Box1 is done , let's move on to Box2 . 
+
+
+### Box 2 : DirtyGeddon2 : 
+
+#### ISO Installation : 
+
+For this machine , we'll need one of these machine for the Dirty Frag exploit : 
+
+Ubuntu 24.04.4: 6.17.0-23-generic
+RHEL 10.1: 6.12.0-124.49.1.el10_1.x86_64
+openSUSE Tumbleweed: 7.0.2-1-default
+CentOS Stream 10: 6.12.0-224.el10.x86_64
+AlmaLinux 10: 6.12.0-124.52.3.el10_1.x86_64
+Fedora 44: 6.19.14-300.fc44.x86_64
+....
+
+In our case we will use the Ubuntu 24.04.4 . 
+
+Here is the Link to Download the Image : 
+
+```bash
+https://releases.ubuntu.com/noble/
+```
 
