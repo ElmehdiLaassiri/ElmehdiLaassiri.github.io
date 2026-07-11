@@ -650,10 +650,11 @@ Make sure the scripts section contains:
 
 These commands control how Next.js runs:
 
-npm run dev → development server
-npm run build → creates production build
-npm run start → starts production server
-Start the vulnerable application
+- npm run dev → development server
+- npm run build → creates production build
+- npm run start → starts production server
+
+**Start the vulnerable application :**
 
 Now checking the structure of Folders , it should look like this : 
 
