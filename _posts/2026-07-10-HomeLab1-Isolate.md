@@ -116,24 +116,43 @@ The domain is fully compromised.
 
 All six boxes were built in VMware. Each machine is deliberately pinned to a specific OS, package, and where relevant kernel version, to guarantee the vulnerability is present and reproducible, and to make sure no automatic update silently patches it mid-lab. Below is the exact build for each box, in the order they're attacked.
 
-**Box 1**
-(Box 1 build Debian 12, kernel pin to 6.0.39, CopyFail verification already drafted)
+**Box 1:**
 
-**Box 2**
-(Drupal 7.57 install, LAMP stack config)
+Debian 12, Next.js/React Server Components application, Node.js runtime, Linux kernel pinned to 6.0.39 for CopyFail compatibility.
 
-**Box 3**
-(WordPress install, Backup Migration v1.3.7 plugin, misconfigured SUID find)
+**Box 2:**
 
-**Box 4**
-(NFS /etc/exports config with no_root_squash, Samba 3.0.20 usermap script config, Redis bound to 0.0.0.0, sudoers NOPASSWD rule on nano, credential ZIP setup)
+Ubuntu 24.04.4 running a full LAMP stack (Apache, MySQL, PHP) with Drupal 7.57 installed and a kernel version vulnerable to DirtyFrag.
 
-**Box 5**
-(Windows 10/11 workstation, local admin account, SMB enabled)
+**Box 3:**
 
-**Domain Controller**
-(Windows Server 2019, ADCS + Web Enrollment install, domain user with reused creds, Certificate template config)
+Debian 13 with Apache, MySQL, PHP, WordPress, and the Backup Migration 1.3.7 plugin. find configured with the SUID bit.
 
+**Box 4:**
+
+Debian 13 bridge host exposing:
+- NFS with no_root_squash;
+- Samba 3.0.20 with username map script;
+- Redis bound to 0.0.0.0 without authentication;
+- passwordless sudo nano;
+- password-protected ZIP archives containing Windows credentials.
+
+**Box 5:**
+
+Windows 10/11 workstation with SMB enabled and a local administrator account configured for lateral movement.
+
+**DC01:**
+
+Windows Server 2019 configured as an Active Directory Domain Controller with DNS, ADCS, Web Enrollment, a reusable domain account, and certificate templates vulnerable to ESC8.
+
+**Networking:**
+
+The lab is split into two segments:
+
+- A NAT network hosting Kali and the public-facing web server;
+- An isolated internal network containing all remaining Linux and Windows systems.
+
+The first machine is dual-homed and serves as the pivot point into the internal network. After compromise, Ligolo-ng creates transparent routing from Kali to the internal subnet, allowing native use of reconnaissance, exploitation, and Active Directory tooling.
 
 ### Box 1 : Fail2Copy : 
 
