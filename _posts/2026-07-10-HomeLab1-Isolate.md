@@ -1136,6 +1136,429 @@ The link to downlaod the ISO image :
 https://www.debian.org/download.fr.html
 ```
 
+We first create the virtual machine (2 GB of RAM and 20 gb of disk 2 Processors should be more than enough) :
 
+<img width="942" height="465" alt="image" src="https://github.com/user-attachments/assets/144f6ebf-ff17-477b-b73c-b8c691691645" />
+
+Now we start the installation , this should be pretty straight forward :
+
+<img width="926" height="274" alt="image" src="https://github.com/user-attachments/assets/8945dd11-1549-4bdc-8d53-ae97effc9648" />
+
+For Hostname : 
+
+<img width="1022" height="385" alt="image" src="https://github.com/user-attachments/assets/a8b0d235-f419-4b7d-af2a-36778d1bf295" />
+
+Domain isn't needed for this one . 
+
+<img width="990" height="347" alt="image" src="https://github.com/user-attachments/assets/286674d8-1444-492d-ab82-e5b1cb970a0c" />
+
+Create you Root password , then a new user , we'll name it azerty : 
+
+<img width="959" height="346" alt="image" src="https://github.com/user-attachments/assets/bc497d4e-bc97-45ba-af9c-519fa8f2d0e8" />
+
+Password is azerty as well . 
+
+Select your timezone , then for the Disk Partition , we slect to use the entire Disk : 
+
+<img width="957" height="405" alt="image" src="https://github.com/user-attachments/assets/115e6919-cca7-4cc9-83a8-85b1fab84d1e" />
+
+Then put all files in 1 partition : 
+
+<img width="974" height="443" alt="image" src="https://github.com/user-attachments/assets/7aff6599-9230-4b86-9aae-a3dd05401658" />
+
+Finally we Confirm the changes :
+
+<img width="939" height="383" alt="image" src="https://github.com/user-attachments/assets/4887cd7b-d9d0-4286-ba17-3c49ae6fa8e4" />
+
+For the extra installation media , we won't be needing that :
+
+<img width="909" height="351" alt="image" src="https://github.com/user-attachments/assets/b54ebee3-7446-4a11-926c-abb45b9f837c" />
+
+For the Mirror image , we choose debian.org :
+
+<img width="900" height="475" alt="image" src="https://github.com/user-attachments/assets/2a5d28da-4f3e-4675-8aa2-37bc23f45501" />
+
+No proxy is needed : 
+
+<img width="1007" height="354" alt="image" src="https://github.com/user-attachments/assets/078d282a-ed57-4719-a31e-80d8cbef6d5d" />
+
+We will install SSH so that we don't have to install open-ssh server later : 
+
+<img width="980" height="493" alt="image" src="https://github.com/user-attachments/assets/474cf5cb-d56f-4bdf-ad41-db8bc93d7d5d" />
+
+Install the Grub boot Loader :
+
+<img width="963" height="351" alt="image" src="https://github.com/user-attachments/assets/314b6ad7-9f54-4faf-b869-f6edb8a73abd" />
+
+We only have 1 partition :
+
+<img width="898" height="395" alt="image" src="https://github.com/user-attachments/assets/0be0fc97-bf12-46d6-8a78-d6a5704a5b1e" />
+
+Once everything is setup , we just reboot the machine :
+
+<img width="1008" height="346" alt="image" src="https://github.com/user-attachments/assets/05e8becb-6194-40cf-8480-236095884c18" />
+
+And our Debian Box is Ready :
+
+<img width="1125" height="634" alt="image" src="https://github.com/user-attachments/assets/5c2e068e-26dd-4869-b4df-668e7ddd3852" />
+
+
+#### Scenario  : 
+
+##### FootHold : 
+
+To obtain our initial foothold, we first need to deploy a WordPress instance before installing the vulnerable plugin.
+
+There are two ways to do this. The first is to install and configure the entire environment manually by setting up the LAMP stack (Linux, Apache, MySQL, and PHP), followed by WordPress itself. Although this approach requires more work, it provides a better understanding of the application's architecture and the services on which it relies.
+
+The second option is to use a preconfigured Docker image that already includes WordPress and its dependencies. This significantly speeds up the deployment process and allows us to focus directly on the exploitation phase.
+
+In our case, we will begin with the manual installation to understand how the different components fit together. Afterwards, we will show how to achieve the same result using Docker for a faster and more reproducible setup.
+
+**Installing WordPress** :
+
+Our Debian 13 machine is already provisioned, so we can start by installing the components required to run WordPress. Like Drupal, WordPress relies on a classic LAMP stack: Linux, Apache, MySQL, and PHP.
+
+First, update the package lists and install Apache, MariaDB, PHP, and the extensions commonly required by WordPress:
+
+```bash
+su - : Switching to root .
+sudo apt update
+sudo apt install apache2 mariadb-server \
+php php-mysql php-gd php-xml \
+php-mbstring php-curl php-zip \
+libapache2-mod-php wget unzip -y
+```
+
+<img width="902" height="743" alt="image" src="https://github.com/user-attachments/assets/263bc0b9-7c61-482c-8fbd-d5e03f5b1915" />
+
+Once the installation completes, verify that Apache and MariaDB are running:
+
+```bash
+sudo systemctl status apache2
+sudo systemctl status mariadb
+```
+
+<img width="979" height="699" alt="image" src="https://github.com/user-attachments/assets/a1fd7de4-58e7-40ee-877c-5d3d5d9a7799" />
+
+Both services should appear as active (running).
+
+Next, we create the database that WordPress will use:
+
+```bash
+sudo mysql
+```
+
+Inside the DB :
+
+```sql
+CREATE DATABASE wordpress;
+
+CREATE USER 'wpuser'@'localhost' IDENTIFIED BY 'Password.123456@';
+
+# This gives the WordPress database user permission to fully manage the wordpress database.
+GRANT ALL PRIVILEGES ON wordpress.* TO 'wpuser'@'localhost';
+
+# This tells MariaDB to reload its privilege tables so the changes are applied immediately.
+FLUSH PRIVILEGES;
+
+EXIT;
+```
+
+<img width="960" height="523" alt="image" src="https://github.com/user-attachments/assets/3a59d71f-e8c9-4c53-8989-293eba8f5284" />
+
+With the database configured, download the latest WordPress release and extract it into Apache's web root:
+
+```bash
+cd /tmp
+
+wget https://wordpress.org/latest.tar.gz
+
+tar -xzf latest.tar.gz
+
+sudo mv wordpress /var/www/html/
+```
+
+<img width="952" height="408" alt="image" src="https://github.com/user-attachments/assets/eab70f34-811e-4e60-9fe5-0a9a74422617" />
+
+Before accessing WordPress, we need to make sure that Apache has the correct permissions to read and serve the files.
+
+On Debian-based systems, Apache runs by default as the `www-data` user. This is a dedicated low-privileged system account used by web services to reduce the impact of a potential compromise.
+
+The WordPress files are located inside Apache's default web root:
+
+```text
+/var/www/html/
+```
+
+When Apache is running, any content placed inside this directory can be accessed through the web server. Therefore, we assign ownership of the WordPress directory to the Apache user:
+
+```bash
+sudo chown -R www-data:www-data /var/www/html/wordpress
+```
+
+Breaking down the command:
+
+- `chown` → changes the owner of files and directories
+- `-R` → applies the change recursively to all files and subdirectories
+- `www-data:www-data` → sets both the user owner and group owner to Apache's account
+- `/var/www/html/wordpress` → the WordPress installation directory
+
+Next, we set the appropriate permissions:
+
+```bash
+sudo chmod -R 755 /var/www/html/wordpress
+```
+
+The `755` permission means:
+
+- Owner (`www-data`) → read, write, execute
+- Group → read and execute
+- Others → read and execute
+
+This allows Apache to access and serve the WordPress files while preventing unauthorized users from modifying them.
+
+<img width="969" height="306" alt="image" src="https://github.com/user-attachments/assets/a7fdeeae-e526-460a-8a66-c17927392adc" />
+
+Once Apache is running, it will serve files located under `/var/www/html/` by default. Therefore, the WordPress installation can be reached through:
+
+```bash
+http://localhost/wordpress
+```
+
+<img width="1092" height="734" alt="image" src="https://github.com/user-attachments/assets/6a789fc1-6b33-4932-8d43-839fb913d6c0" />
+
+From here we just follow the Installation guide , it is pretty straight forward :
+
+<img width="1001" height="498" alt="image" src="https://github.com/user-attachments/assets/e7184158-bc4a-46bb-943f-f00aa1566189" />
+
+We just specify the DB user we created earlier for this : 
+
+```text
+Database Name: wordpress
+
+Username: wpuser
+
+Password: Password.123456@
+
+Database Host: localhost
+
+Table Prefix: wp_
+```
+
+<img width="1060" height="600" alt="image" src="https://github.com/user-attachments/assets/366723bc-04d1-4ed0-a891-634cff6e4cde" />
+
+Finally we just start the Installation :
+
+<img width="947" height="304" alt="image" src="https://github.com/user-attachments/assets/65892261-6b1c-4a84-a632-3c4408ee65d2" />
+
+WordPress requires the creation of the first administrative account.
+
+For this lab, we use the following values:
+
+```text
+Site Title: Isolate-corp
+
+Username: wpadmin
+
+Password: XVFT5PGUEN@24521D
+Email: admin@isolate.local 
+```
+
+<img width="1125" height="634" alt="image" src="https://github.com/user-attachments/assets/d1ae8ddb-0e2b-47a0-9e2f-22112abab9b9" />
+
+This account will be used to access the WordPress administration panel and install the vulnerable plugin required for the exploitation phase.
+
+Since this instance is running locally as part of a vulnerable lab environment, we enable the option to discourage search engines from indexing the site.
+
+After completing the installation, WordPress is ready and we can proceed with installing the vulnerable plugin version required for CVE-2023-6553.
+
+<img width="967" height="474" alt="image" src="https://github.com/user-attachments/assets/a41737bf-d3e5-4a85-a050-82d1477147ef" />
+
+We can now login to our admin panel :
+
+<img width="1027" height="620" alt="image" src="https://github.com/user-attachments/assets/7594d58a-a5cb-4a06-9ed6-c54822179019" />
+
+**Installing the Vulnerable Plugin**
+
+The vulnerability affects version **1.3.7** of the Backup Migration plugin. Since WordPress only installs the latest version from the plugin repository by default, we need to manually upload the vulnerable release.
+
+First, download the archived plugin version:
+
+```bash
+wget https://downloads.wordpress.org/plugin/backup-backup.1.3.7.zip
+```
+
+<img width="1083" height="412" alt="image" src="https://github.com/user-attachments/assets/a6f37be4-f081-454b-a75d-c3bb264de4d9" />
+
+Next, log in to the WordPress administration panel and navigate to:
+
+```text
+Plugins → Add New Plugin → Upload Plugin
+```
+
+Upload the archive:
+
+```text
+backup-backup.1.3.7.zip
+```
+
+<img width="1342" height="618" alt="image" src="https://github.com/user-attachments/assets/d22e8f26-4ab0-4f09-bb2d-381c7f4ff235" />
+
+Once activated, the vulnerable endpoint exposed by CVE-2023-6553 will be available.
+
+<img width="1084" height="372" alt="image" src="https://github.com/user-attachments/assets/b0416dac-73ea-410d-b497-6499e733ed71" />
+
+```text
+http://localhost//wordpress/wp-content/plugins/backup-backup/
+```
+
+After installation, you can verify that the plugin is present by checking:
+
+<img width="1279" height="595" alt="image" src="https://github.com/user-attachments/assets/2d9b65ea-9721-48b2-9c99-774a155fbee8" />
+
+Perfect now our Initial Foothold is set . 
+
+**Alternative Setup: Docker**
+
+As an alternative to the manual installation, WordPress can also be deployed using Docker. This approach is significantly faster, as the web server, PHP runtime, and WordPress itself are already configured inside the container.
+
+First, install Docker and Docker Compose:
+
+```bash
+sudo apt update
+sudo apt install docker.io docker-compose -y
+```
+
+Then, enable and start the Docker service:
+
+```bash
+sudo systemctl enable --now docker
+```
+
+We can verify the installation with:
+
+```bash
+docker --version
+docker-compose --version
+```
+
+At this point, the official WordPress image can be downloaded:
+
+```bash
+docker pull wordpress
+```
+
+Note that the image only contains WordPress and its dependencies, a separate MariaDB container is still required for a fully functional deployment. Nevertheless, Docker provides a quick and reproducible alternative to the manual installation process.
+
+Next, create the following docker-compose.yml file:
+
+```bash
+services:
+  db:
+    image: mariadb:latest
+    restart: always
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wpuser
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: rootpassword
+
+  wordpress:
+    image: wordpress:latest
+    restart: always
+    ports:
+      - "80:80"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wpuser
+      WORDPRESS_DB_PASSWORD: password
+      WORDPRESS_DB_NAME: wordpress
+
+    depends_on:
+      - db
+```
+
+Start the containers:
+
+```bash
+docker-compose up -d
+```
+
+Docker will automatically download the required images, create both containers, and configure the connection between WordPress and MariaDB.
+
+<img width="1130" height="757" alt="image" src="https://github.com/user-attachments/assets/d7327e4d-f6de-4bcb-8d0b-d56dc78e29c7" />
+
+The first error i got is just because of apache already running on port 80 from the manual installation :
+
+```bash
+sudo systemctl stop apache2
+```
+
+Once the deployment is complete, WordPress will be accessible at:
+
+```bash
+http://localhost 
+```
+
+<img width="1232" height="705" alt="image" src="https://github.com/user-attachments/assets/315885c5-9428-4d3b-8092-6fef6380d2c6" />
+
+The remaining setup steps, creating the administrator account and installing the vulnerable Backup Migration plugin—are identical to the manual installation.
+
+Now let's move on the PrivEsc path .
+
+##### Priv Esc : 
+
+For this box, the privilege escalation path relies on a deliberately misconfigured SUID binary.
+
+SUID binaries execute with the privileges of their owner instead of the user who runs them. By assigning the SUID bit to a binary owned by root, we can make it execute with root privileges.
+
+To simulate this misconfiguration, we assign the SUID permission to `/usr/bin/find`:
+
+
+```bash
+sudo chmod u+s /usr/bin/find
+```
+
+We can verify that the SUID bit is correctly applied:
+
+```bash
+ls -la /usr/bin/find
+```
+
+<img width="758" height="292" alt="image" src="https://github.com/user-attachments/assets/cae9f045-700d-41c8-adae-9e4e8baebee3" />
+
+The output should contain an `s` in the owner's execute position:
+
+```bash
+-rwsr-xr-x 1 root root ... /usr/bin/find
+```
+
+Now, from the low-privileged `www-data` shell obtained during exploitation, we can abuse this SUID binary.
+
+Using GTFOBins, we find a known privilege escalation method for `find`:
+
+```text
+https://gtfobins.github.io/
+```
+
+More on that in the attack phase .
+
+For now The privilege escalation is complete.
+
+Box 3 is setup , Moving on to Box4 . 
+
+
+### Box 4 : ORNN : 
+
+#### ISO Installation : 
+
+For this one we will follow the same thing we did with Box3 . 
+
+Just check The ISO Installation section on Box 3 . 
+
+#### Scenario  : 
+
+##### Foothold : 
 
 
