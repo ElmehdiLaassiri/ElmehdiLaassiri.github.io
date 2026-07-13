@@ -1,4 +1,4 @@
-<img width="1207" height="452" alt="image" src="https://github.com/user-attachments/assets/3ae821e5-b569-487b-9a8e-cd557bbafb57" /><img width="980" height="478" alt="image" src="https://github.com/user-attachments/assets/780626a7-ae99-4f7b-b07f-62bab39c9f0d" />---
+---
 title: " Home Lab 1 : Isolate "
 date: 2026-07-10 00:00:00 +0000
 categories: [Home Lab ]
