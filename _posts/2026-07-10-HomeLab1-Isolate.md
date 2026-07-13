@@ -760,7 +760,69 @@ sudo reboot
 
 ##### Priv Esc : 
 
-We chose this Ubuntu and kernel version because it is vulnerable to DirtyFrag (CVE-2026-43284), allowing us to perform local privilege escalation without requiring any additional kernel modifications. Pinning the kernel version ensures that the exploit remains reproducible throughout the lab.
+We chose this Ubuntu and kernel version because it is vulnerable to DirtyFrag (CVE-2026-43284), But the Kernel version we got after the Installation was patched 6.17.0-35
+
+<img width="915" height="231" alt="image" src="https://github.com/user-attachments/assets/7434034f-74f0-43e5-87a7-dffceeca5e04" />
+
+First let's list all the kernels that we've got downloaded :
+
+```bash
+dpkg -l | grep 6.17.0
+```
+
+We are looking for 6.17.0-23-generic, the version against which the DirtyFrag exploit was validated by its author.
+
+<img width="1690" height="384" alt="image" src="https://github.com/user-attachments/assets/f4f97d47-228e-4b02-b939-f9e39800d8a2" />
+
+If the vulnerable kernel is not installed, we can install it manually:
+
+```bash
+sudo apt install linux-image-6.17.0-23-generic \
+linux-modules-6.17.0-23-generic \
+linux-modules-extra-6.17.0-23-generic
+```
+
+Now we need to configure the Grub menu , since on this ubuntu version it is hidden by default :
+
+```bash
+sudo nano /etc/default/grub
+```
+
+Ensure that the following options are present:
+
+```bash
+GRUB_DEFAULT=5
+GRUB_TIMEOUT_STYLE=menu
+GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR=`( . /etc/os-release; echo ${NAME:-Ubuntu} ) 2>/dev/null || echo Ubuntu`
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
+GRUB_CMDLINE_LINUX=""
+```
+
+<img width="1035" height="360" alt="image" src="https://github.com/user-attachments/assets/16772791-35cd-400c-a619-67174cb13879" />
+
+By changing GRUB_TIMEOUT_STYLE to menu, the GRUB menu becomes visible during startup, and GRUB_TIMEOUT=5 gives us five seconds to choose the desired kernel.
+
+From there we reboot the machine :
+
+<img width="1120" height="552" alt="image" src="https://github.com/user-attachments/assets/d4477f73-b34e-4f42-b139-4c20d27aa88e" />
+
+We select Advanced Options , Then we speficy the kernel we need :
+
+<img width="980" height="461" alt="image" src="https://github.com/user-attachments/assets/d2fccf8a-108e-4a9c-8aba-77ea37eb30d0" />
+
+It is 23 in this case . Once it boots , we check again :
+
+```bash
+uname -a
+```
+
+<img width="1060" height="329" alt="image" src="https://github.com/user-attachments/assets/a1ec3c55-ee0d-48b3-834b-bd231cb8a36a" />
+
+The machine is now running the same kernel version that was used to validate the DirtyFrag exploit, ensuring that the privilege-escalation step can be reproduced reliably.
+
+Now let's move on to the initial foothold.
+
 
 ##### FootHold : 
 
@@ -1046,3 +1108,15 @@ For now Box 2 is done , let's move to Box 3 :
 ### Box 3 : Backup : 
 
 #### ISO Installation : 
+
+For this one we need a debian 13 machine , where we will configure WordPress . 
+
+The link to downlaod the ISO image :
+
+```
+https://www.debian.org/download.fr.html
+```
+
+
+
+
