@@ -1696,7 +1696,7 @@ Password: N7!qV4#zL9@xP2$k
 
 [Backup-Service]
 Username: svc_backup
-Password: B4^nX9!pL3@dS8#r
+Password: backup123
 
 [Database]
 Username: svc_database
