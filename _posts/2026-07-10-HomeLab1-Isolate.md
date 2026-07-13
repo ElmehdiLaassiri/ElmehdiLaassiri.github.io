@@ -1,4 +1,4 @@
----
+<img width="1207" height="452" alt="image" src="https://github.com/user-attachments/assets/3ae821e5-b569-487b-9a8e-cd557bbafb57" /><img width="980" height="478" alt="image" src="https://github.com/user-attachments/assets/780626a7-ae99-4f7b-b07f-62bab39c9f0d" />---
 title: " Home Lab 1 : Isolate "
 date: 2026-07-10 00:00:00 +0000
 categories: [Home Lab ]
@@ -1557,8 +1557,443 @@ For this one we will follow the same thing we did with Box3 .
 
 Just check The ISO Installation section on Box 3 . 
 
+Of course we can just clone the Box3 , and not have to redo the entire installation : 
+
+<img width="1392" height="670" alt="image" src="https://github.com/user-attachments/assets/4963fb57-68d4-4b9e-b32d-dca2fe5d6693" />
+
+From there we select Full Clone , so that the machine is independent : 
+
+<img width="1155" height="539" alt="image" src="https://github.com/user-attachments/assets/ef66101b-3c0b-46ca-8e08-cf2e8685d870" />
+
+Finally we just change the name and hit Finish :
+
+<img width="950" height="461" alt="image" src="https://github.com/user-attachments/assets/bf0c566d-37f2-4d5b-ac7e-5875b33e7e74" />
+
+Once the clone is done , our machine should be setup :
+
+<img width="1146" height="538" alt="image" src="https://github.com/user-attachments/assets/86dce6fb-f8af-45e8-b8dc-6f722f12297d" />
+
+We won't need the Wordpress dependencies (Apache , Maria) so we will just turn off these services later . (keeping them doesn't affect the rest) . 
+
+
 #### Scenario  : 
+
 
 ##### Foothold : 
 
+
+**Setting up the NFS server :**
+
+The first service on the bridge box is NFS. The goal is to create a shared directory that will act as the initial information leak point in the lab.
+
+The share will contain a password-protected ZIP archive holding credentials for later stages of the attack chain. The NFS configuration will intentionally include a weak permission setting to reproduce a common infrastructure mistake.
+
+
+**Installing NFS**
+
+First, install the NFS server package:
+
+```bash
+sudo apt update
+sudo apt install nfs-kernel-server -y
+```
+
+Then Enable and start the service:
+
+```bash
+sudo systemctl enable nfs-server
+sudo systemctl start nfs-server
+```
+
+Verify that NFS is running:
+
+```bash
+sudo systemctl status nfs-server
+```
+
+<img width="935" height="341" alt="image" src="https://github.com/user-attachments/assets/c3080a9f-57d7-49f9-921b-63019baffc7f" />
+
+**Creating the shared directory :**
+
+First we create the directory that will be exposed through NFS:
+
+```bash
+sudo mkdir -p /srv/share
+```
+
+Then we set the permissions for the lab environment:
+
+```bash
+sudo chmod 777 /srv/share
+```
+
+The directory will now be used as the exported NFS share.
+
+NFS (Network File System) works by exporting a local directory so that other machines (NFS clients) can mount it over the network. 
+
+The file that controls which directories are shared and who can access them is */etc/exports*
+
+
+
+```bash
+sudo nano /etc/exports
+```
+
+Inside the File we add our share : 
+
+```bash
+/srv/share *(rw,sync,no_subtree_check)
+```
+
+Explanation:
+
+- /srv/share → directory being shared
+- * → allows any client to connect (use a specific IP in real env)
+- rw → read/write access
+- sync → ensures data is written safely before confirming
+- no_subtree_check → improves performance and avoids path checking issues
+
+We save the file then we apply the changes 
+
+```bash
+sudo exportfs -a
+```
+
+<img width="1207" height="452" alt="image" src="https://github.com/user-attachments/assets/a27ef306-27a5-4665-a28f-2d4845930a96" />
+
+Now our NFS is setup, if we wanted to check :
+
+```bash
+/usr/sbin/showmount -e localhost
+```
+
+<img width="551" height="218" alt="image" src="https://github.com/user-attachments/assets/f181e696-b23c-4ee9-8ed1-45abd088a379" />
+
+**Creating the credential archive**
+
+Inside the share, create the file that will contain the lab credentials.
+
+Create a temporary directory:
+
+```bash
+mkdir ~/credentials
+```
+
+Add the credential file:
+
+```bash
+nano ~/credentials/windows-creds.txt
+```
+
+For the creds file :
+
+```bash
+Automation.txt
+
+[Windows-DC]
+Username: Administrator
+Password: N7!qV4#zL9@xP2$k
+
+[Backup-Service]
+Username: svc_backup
+Password: B4^nX9!pL3@dS8#r
+
+[Database]
+Username: svc_database
+Password: D6$yH1@wZ8!cM4^q
+```
+
+Then we ZIP the file with a password : 
+
+```bash
+zip -e ~/credentials/windows-creds.zip  ~/credentials/windows-creds.txt
+```
+
+<img width="929" height="319" alt="image" src="https://github.com/user-attachments/assets/a251e496-291b-459d-a76c-f61d127c8b19" />
+
+Finally we should move the ZIP file to the NFS Share :
+
+```bash
+sudo mv ~/credentials/windows-creds.zip /srv/share/
+```
+
+**Setting Up Samba :**
+
+First let's check if we got Samba :
+
+```bash
+dpkg -l | grep samba
+```
+
+<img width="1462" height="297" alt="image" src="https://github.com/user-attachments/assets/b0cae9f2-9a95-4b6f-8efd-a4d20e969c04" />
+
+We don't have samba , the problem is that if we try downloading it via apt : 
+
+```bash
+sudo apt install samba
+```
+
+It would give us Samba 4.22.x, which is not vulnerable to CVE-2007-2447.
+
+For this lab, we need to install Samba 3.0.20 specifically.
+
+Then we install the Dependencies :
+
+```bash
+sudo apt update
+sudo apt install -y build-essential wget tar libacl1-dev libldap2-dev libssl-dev
+```
+
+Next we download the samba version that is vulnerable : 
+
+```bash
+wget https://download.samba.org/pub/samba/stable/samba-3.0.20.tar.gz
+tar -xvzf samba-3.0.20.tar.gz
+```
+
+<img width="1137" height="578" alt="image" src="https://github.com/user-attachments/assets/24b03825-10c5-44fd-bf96-9e7077d24c82" />
+
+Now we go to samba-3.0.20/source :
+
+```bash
+cd samba-3.0.20/source
+```
+
+From there we configure and compile the source :
+
+The build failed on a file handling disk quotas, written for an old Linux version that no longer matches ours. Since quota support isn't needed for this lab, we just told configure to skip it entirely instead of patching the old code :
+
+```bash
+make distclean
+CFLAGS="-std=gnu89" ./configure --without-quotas --without-sys-quotas
+make CFLAGS="-std=gnu89"
+sudo make install
+```
+
+<img width="1107" height="461" alt="image" src="https://github.com/user-attachments/assets/e97bb9c9-8b6f-4f8c-a1e5-d6ad0fff2cbf" />
+
+This builds Samba 3.0.20 from source since apt only gives us the patched modern version.
+
+We create the runtime directories Samba expects :
+
+```bash
+bashsudo mkdir -p /usr/local/samba/var/locks
+sudo mkdir -p /usr/local/samba/lib
+```
+
+**Configuring smb.conf :**
+
+```bash
+sudo nano /usr/local/samba/lib/smb.conf
+```
+
+Inside the File :
+
+```bash
+[global]
+workgroup = WORKGROUP
+netbios name = ORNN
+security = user
+map to guest = Bad User
+username map script = /usr/local/samba/lib/username_map.sh
+username map = /usr/local/samba/lib/username_map
+
+[tmp]
+path = /tmp
+guest ok = yes
+read only = no
+browsable = yes
+```
+
+username map script is the vulnerable directive, it passes the client's username straight to a shell script.
+
+Save and exit, then we create the map script itself :
+
+```bash
+sudo nano /usr/local/samba/lib/username_map.sh
+
+# Inside of it :
+#!/bin/bash
+echo "$1"
+```
+
+Finally , we make it executable :
+
+```bash
+sudo chmod +x /usr/local/samba/lib/username_map.sh
+```
+
+We also need an empty map file so Samba doesn't complain on startup :
+
+```bash
+sudo touch /usr/local/samba/lib/username_map
+```
+Once that's done, tell me and we'll start smbd/nmbd and verify it's listening.
+
+*Quick Note :* 
+
+Downloading Samba 3.0.20 gives you the vulnerable code, but you still need to enable the feature that triggers it in your config. That's what we're doing with the smb.conf setup.
+
+Now we just start the services :
+
+```bash
+sudo /usr/local/samba/sbin/smbd -D
+sudo /usr/local/samba/sbin/nmbd -D
+```
+
+Then we can check the services :
+
+```bash
+ss -tlnp | grep -E '139|445'
+```
+
+We should see both ports open now : 
+
+<img width="1005" height="336" alt="image" src="https://github.com/user-attachments/assets/9e2633a4-cbc8-417d-ae80-3989067ace78" />
+
+Now The Samba service is all set . 
+
+
+**Configuring Redis :**
+
+Install Redis from the repos (we need the server, not just the CLI) :
+
+```bash
+sudo apt update
+sudo apt install redis-server -y
+```
+
+Open the main Redis config file to expose it on all network interfaces :
+
+```bash
+sudo nano /etc/redis/redis.conf
+```
+
+Make sure you modify : 
+
+```bash
+bind 0.0.0.0
+protected-mode no
+```
+
+<img width="960" height="541" alt="image" src="https://github.com/user-attachments/assets/4df96142-4303-42d9-905e-2b5175124ed7" />
+
+From there we restart the service :
+
+```bash
+sudo systemctl restart redis-server
+```
+
+This version has too much restrictions for arbitrary file write via CONFIG SET, so i used an older version :
+
+Download and compile Redis 3.2.13 (older version without protected-config restrictions) :
+
+```bash
+cd ~
+wget http://download.redis.io/releases/redis-3.2.13.tar.gz
+tar -xvzf redis-3.2.13.tar.gz
+cd redis-3.2.13
+make
+sudo make install
+```
+
+This builds Redis 3.2.13 from source, which is vulnerable to arbitrary file write via CONFIG SET without the modern restrictions.
+
+Create the directories Redis needs :
+
+```bash
+sudo mkdir -p /usr/local/redis/etc
+sudo mkdir -p /home/azerty/.ssh
+```
+
+Create the config file to expose Redis and point to the SSH directory :
+
+```bash
+sudo nano /usr/local/redis/etc/redis.conf
+```
+
+Inside of it we add these lines :
+
+```bash
+bind 0.0.0.0
+protected-mode no
+port 6379
+dir /home/azerty/.ssh
+dbfilename authorized_keys
+```
+
+- bind 0.0.0.0 exposes Redis on all interfaces.
+- protected-mode no disables the safety guard.
+- dir and dbfilename pre-configure where the database will be saved.
+
+Kill any old Redis processes and start the new vulnerable version :
+
+```bash
+sudo pkill -f redis-server
+sudo /usr/local/bin/redis-server /usr/local/redis/etc/redis.conf &
+```
+
+Then finally verify it's listenning :
+
+```bash
+redis-cli ping
+```
+
+It should respond with a PONG . 
+
+<img width="1478" height="627" alt="image" src="https://github.com/user-attachments/assets/c0c84487-12e2-4331-a852-bf2d4e85aef1" />
+
+Redis is now Set up . 
+
+##### PrivEsc : 
+
+**Path 1: Samba CVE-2007-2447**
+
+Direct unauthenticated RCE as root. No escalation needed ,you're already root.
+
+**Path 2: NFS + svc_backup credentials**
+
+Create the svc_backup user with a home directory (this user will be found in the NFS credentials) :
+
+```bash
+sudo useradd -m svc_backup
+```
+
+Set the password to backup123 (this credential will be stored in the /srv/share/windows-creds.zip on the NFS share) :
+
+```bash
+sudo passwd svc_backup
+```
+
+Password can be anything , we're using : backup123
+
+Give svc_backup sudo access to run nano without requiring a password. This is the misconfiguration that enables escalation :
+
+```bash
+sudo visudo
+```
+
+Add this line at the very end of the file :
+
+```bash
+svc_backup ALL=(ALL) NOPASSWD: /usr/bin/nano
+```
+
+Save and exit.
+
+Verify the sudoers entry was added correctly :
+
+```bash
+sudo -l -U svc_backup
+```
+
+Should output that nano is allowed without a password.
+
+<img width="1149" height="642" alt="image" src="https://github.com/user-attachments/assets/dfbb0b86-879d-4e7d-8c74-3d8eeb65eec0" />
+
+Now the PrivEsc path is also done . Moving on to Box 5 . 
+
+### Box 5 : Rogue : 
+
+#### ISO Installation :
 
