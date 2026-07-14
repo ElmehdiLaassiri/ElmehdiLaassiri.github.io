@@ -1997,3 +1997,392 @@ Now the PrivEsc path is also done . Moving on to Box 5 .
 
 #### ISO Installation :
 
+For this Box we will be using a Windows 10 machine . 
+
+First go to the Microsoft Download page :
+
+```text
+https://www.microsoft.com/en-gb/software-download/windows10
+```
+
+Normally, Microsoft asks you to download the Media Creation Tool, which requires going through the installation process manually. 
+
+Instead, there is a small trick that allows us to download the ISO directly.
+
+First we open Browser's Tools --> Network Tab --> 3 dots --> More Tools --> Network Conditions :
+
+<img width="1706" height="828" alt="image" src="https://github.com/user-attachments/assets/f39856d0-834a-4ed2-9051-c565a6ab044b" />
+
+From there we uncheck the "User Browser Default" :
+
+<img width="778" height="475" alt="image" src="https://github.com/user-attachments/assets/a06e8fc2-acd6-4734-b6e3-a0c9f0fa8e1a" />
+
+After that we can modify it to anything else ,  we can choose Chrome OS . 
+
+From there , we just refresh the page :
+
+<img width="914" height="506" alt="image" src="https://github.com/user-attachments/assets/610bb694-7874-46a5-998f-0a787a60c981" />
+
+Now we see that we can select the version we want to download : 
+
+<img width="852" height="647" alt="image" src="https://github.com/user-attachments/assets/8541e74d-df4e-40a9-aa6f-ec1f9b34fa55" />
+
+We choose Windows 10 since that's the only option available , then select the language :
+
+<img width="977" height="429" alt="image" src="https://github.com/user-attachments/assets/6796fc1e-c06a-429c-9c69-48eebfd81179" />
+
+Finally, select the x64 edition, as it matches the architecture of our machine then we just wait for it to install . 
+
+Once the download is complete, create a new virtual machine:
+
+<img width="907" height="527" alt="image" src="https://github.com/user-attachments/assets/349b1ed4-f90e-4750-af4a-87fa82768235" />
+
+During the installation, select the Education edition. For the product key, simply leave the field empty.
+
+<img width="987" height="536" alt="image" src="https://github.com/user-attachments/assets/6f678ad6-0d30-47a0-8157-3b6e7509bc8c" />
+
+For Virtual Disk , We put everything in a single file .
+
+We launch the machine and start our installation :
+
+<img width="1063" height="554" alt="image" src="https://github.com/user-attachments/assets/9b2efcd9-a795-409c-b78b-b22f49d0d915" />
+
+Once the Installation is done , we can login to our machine .  
+
+<img width="1236" height="526" alt="image" src="https://github.com/user-attachments/assets/703fdb5e-bbfd-4207-847d-3b1e319b6641" />
+
+Our Windows image is now ready, and we can start building the scenario.
+
+#### Scenario :
+
+##### Foothold : 
+
+We first need to create the users that will be involved in the scenario.
+
+Open a PowerShell terminal as Administrator and create the backup account:
+
+```Powershell
+net user svc_backup backup123 /add
+```
+
+This account will later be discovered through the leaked credentials on the NFS share and will serve as our initial foothold on the machine.
+
+Next, enable the built-in Administrator account:
+
+```Powershell
+net user Administrator /active:yes
+```
+
+We will also create our local administrative user:
+
+```Powershell
+net user elmehdi 123456789 /add
+net localgroup Administrators elmehdi /add
+```
+
+<img width="881" height="429" alt="image" src="https://github.com/user-attachments/assets/11f37f4e-3c64-40fc-ab17-2cfe10d81579" />
+
+Now that the users are in place, we can enable the remote services that will be used throughout the lab.
+
+First, enable WinRM:
+
+```Powershell
+Enable-PSRemoting -Force
+```
+
+Then, add the backup account to the Remote Management Users group so that it can authenticate remotely:
+
+```Powershell
+net localgroup "Remote Management Users" svc_backup /add
+```
+
+Next, enable Remote Desktop:
+
+```Powershell
+Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" `
+-Name fDenyTSConnections -Value 0
+```
+
+Enable the corresponding firewall rules for both of these services : 
+
+For Winrm :
+
+```powershell
+Enable-NetFirewallRule -DisplayGroup "Windows Remote Management"
+```
+
+And for RDP :
+
+```powershell
+Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+```
+
+<img width="1055" height="408" alt="image" src="https://github.com/user-attachments/assets/6e5a7304-5bad-4ab0-a94e-6ee5bc700bca" />
+
+To apply changes , we need to reboot the machine : 
+
+Now, to verify that both WinRM and RDP are enabled, we can check the listening ports:
+
+```bash
+netstat -ano | findstr ":3389 :5985"
+```
+
+- 3389 corresponds to RDP.
+- 5985 corresponds to WinRM over HTTP.
+
+<img width="1051" height="287" alt="image" src="https://github.com/user-attachments/assets/ce4004cb-8498-46e2-b88c-31ccd7b942f0" />
+
+Services are set as well . 
+
+Now For the sake of the lab, Windows Defender and the real-time protection mechanisms will also be disabled so they do not interfere with the scenario.
+
+The first thing we need to disable is Tamper Protection. This feature prevents administrators and scripts from modifying Microsoft Defender settings, even when running with elevated privileges.
+
+To disable it, open Windows Security and navigate to:
+
+```text
+Virus & threat protection → Manage settings → Tamper Protection
+```
+
+<img width="1139" height="279" alt="image" src="https://github.com/user-attachments/assets/ec511c05-b35e-4029-839d-0333922bc074" />
+
+Now that Tamper protection is off , we will be able to disable  AV using PS scripts , either we do it now , or until the attack phase : 
+
+```powershell
+Set-MpPreference -DisableRealtimeMonitoring $true
+Set-MpPreference -MAPSReporting 0
+Set-MpPreference -SubmitSamplesConsent 2
+Set-MpPreference -DisableBehaviorMonitoring $true
+Set-MpPreference -DisableScriptScanning $true
+```
+
+<img width="920" height="376" alt="image" src="https://github.com/user-attachments/assets/9173b460-9a4f-414c-8c0d-3aa3c62a289e" />
+
+We can verify it using PS as well : 
+
+```powershell
+Get-MpPreference | Select-Object DisableRealtimeMonitoring, DisableBehaviorMonitoring, DisableScriptScanning, MAPSReporting, SubmitSamplesConsent
+```
+
+<img width="1229" height="508" alt="image" src="https://github.com/user-attachments/assets/3c400043-2ffb-4ef0-a3ba-b55ba33e8f30" />
+
+Now the Foothold is set . Let's move on to the privesc setup . 
+
+
+##### Priv Esc : 
+
+The privilege escalation path on this machine relies on a common Windows service misconfiguration: an unquoted service path.
+
+Windows services running executables located in directories containing spaces should have their binary paths wrapped in quotation marks.
+
+For example, a properly configured service path would look like:
+
+```text
+"C:\Program Files\Backup Service\backup.exe"
+```
+
+However, if the quotation marks are missing:
+
+```text
+C:\Program Files\Backup Service\backup.exe
+```
+
+Windows may interpret the path incorrectly and attempt to locate the executable by checking different possible paths.
+
+This behavior becomes dangerous when a low-privileged user has both the ability to place an executable in one of the searched locations and the permission to restart the affected service.
+
+When the service is restarted, Windows may execute the attacker-controlled binary with the privileges of the service account, resulting in privilege escalation.
+
+
+**Creating the backup service executable :**
+
+
+Before creating the vulnerable service, we first need a service executable.
+
+Since the Windows machine is meant to resemble a normal enterprise endpoint, we do not install development tools on it. Instead, we build the executable on our Kali machine and only transfer the final binary to the Windows host.
+
+For this, we use MinGW-w64 to cross-compile a Windows executable from Kali.
+
+First, install the required compiler:
+
+```bash
+sudo apt update
+sudo apt install mingw-w64 -y
+```
+
+Verify the installation : 
+
+```bash
+x86_64-w64-mingw32-gcc --version
+```
+
+From there we create a basic c file :
+
+```c
+#include <windows.h>
+
+int main()
+{
+    while (1)
+    {
+        Sleep(1000);
+    }
+
+    return 0;
+}
+```
+
+We then compile it into a Windows executable:
+
+```bash
+x86_64-w64-mingw32-gcc backup.c -o backup.exe
+```
+
+Verify that the output is a Windows executable:
+
+```bash
+file backup.exe
+```
+
+The output should confirm that it is a Windows PE executable:
+
+```bash
+PE32+ executable (console) x86-64, for MS Windows
+```
+
+<img width="1036" height="834" alt="image" src="https://github.com/user-attachments/assets/7a570422-e279-4c59-a8a7-5a23b4094475" />
+
+
+Now we transfer the executable to the Windows machine.
+
+On Kali, start a simple HTTP server:
+
+```bash
+python3 -m http.server 80
+```
+
+On the Windows machine, download the executable:
+
+Create the directory first : 
+
+```bash
+mkdir "C:\Program Files\Backup Service"
+```
+
+Then we transfer the executable :
+
+```powershell
+curl http://<KALI_IP>/backup.exe -o "C:\Program Files\Backup Service\backup.exe"
+```
+
+The final location of the service binary will be:
+
+```bash
+C:\Program Files\Backup Service\backup.exe
+```
+
+<img width="889" height="304" alt="image" src="https://github.com/user-attachments/assets/17b2ff7e-d7ac-474f-9a99-cad94a81de24" />
+
+
+Now that the service executable is ready, we can create the vulnerable Windows service and intentionally introduce the unquoted service path misconfiguration.
+
+The service will run with the default service account:
+
+```text
+NT AUTHORITY\SYSTEM
+```
+
+This gives the service the highest privileges on the local machine.
+
+We create the service using `sc.exe`:
+
+```cmd
+sc.exe create BackupService binPath= "C:\Program Files\Backup Service\backup.exe" start= auto
+```
+
+The important part here is the `binPath` parameter.
+
+The path contains spaces:
+
+```text
+C:\Program Files\Backup Service\backup.exe
+```
+
+Normally, Windows expects paths containing spaces to be wrapped in quotation marks:
+
+```text
+"C:\Program Files\Backup Service\backup.exe"
+```
+
+However, we intentionally leave the path unquoted to reproduce the vulnerability.
+
+Now we verify the service configuration:
+
+```cmd
+sc.exe qc BackupService
+```
+
+The output should show:
+
+```text
+BINARY_PATH_NAME : C:\Program Files\Backup Service\backup.exe
+```
+
+<img width="993" height="345" alt="image" src="https://github.com/user-attachments/assets/74bdabe5-52c2-4e64-b140-bfdb46bce80f" />
+
+Notice that the binary path is missing quotation marks.
+
+The service is now configured incorrectly and ready to be used in the privilege escalation chain.
+
+**Giving svc_backup service restart permissions :**
+
+At this point, the vulnerable service exists, but our low-privileged user still needs permission to interact with it.
+
+By default, normal users cannot control Windows services.
+
+To reproduce the enterprise misconfiguration, the service permissions are intentionally modified to allow any local user to start and stop the backup service.
+
+We modify the service security descriptor:
+
+```cmd
+sc.exe sdset BackupService "D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RPWP;;;WD)"
+```
+
+The important entry added at the end is:
+
+```text
+(A;;RPWP;;;WD)
+```
+
+This gives the `Everyone` group the ability to interact with the service.
+
+Explanation:
+
+```text
+WD  → Everyone
+RP  → SERVICE_START
+WP  → SERVICE_STOP
+```
+
+We can verify the updated service permissions:
+
+```cmd
+sc.exe sdshow BackupService
+```
+
+<img width="1460" height="262" alt="image" src="https://github.com/user-attachments/assets/10f9b8d5-77ef-415b-b77c-5901bcb29041" />
+
+The output should now contain:
+
+```text
+(A;;RPWP;;;WD)
+```
+
+At this point, the service is fully prepared for exploitation.
+
+Now Box 5 is done . Let's move on to Box 6 . 
+
+
+### Box 6 : DC01 : 
+
+#### ISO Installation : 
