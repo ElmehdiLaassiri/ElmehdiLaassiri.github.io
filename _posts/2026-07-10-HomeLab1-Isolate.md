@@ -30,7 +30,7 @@ Quick version of the full attack path:
 - The same credentials are reused once more on the Domain Controller **(Box 6)** as a valid domain account, triggering an ADCS ESC8 chain, where PetitPotam coerces the DC to authenticate, ntlmrelayx relays that auth to the undefended Web Enrollment endpoint, Certipy turns the resulting certificate into a TGT via PKINIT, and a final DCSync dumps every credential in the domain, including krbtgt.
 
 
-<img width="1600" height="1000" alt="svgviewer-png-output" src="https://github.com/user-attachments/assets/9c9890b8-dc6f-42c1-b105-5e65c0f35cf1" />
+<img width="1600" height="1000" alt="svgviewer-png-output (1)" src="https://github.com/user-attachments/assets/6b8475f6-77dd-4b7a-8352-2fbb50e7025e" />
 
 
 ## Scenarios : 
