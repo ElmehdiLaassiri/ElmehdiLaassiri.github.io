@@ -25,7 +25,7 @@ Quick version of the full attack path:
 
 - **Box 4** is a pure misconfig box, where a no_root_squash NFS share leaks Windows credentials outright, while Samba's usermap script (CVE-2007-2447), an unauthenticated Redis instance, and a passwordless sudo rule allowing the leaked user to run nano as root (GTFOBins) all offer independent routes straight to root anyway.
 
-- Those leaked credentials get reused on **Box 5**, a Windows workstation, where SMB access via NetExec enables RDP remotely, and RoguePlanet, a Windows Defender race condition, escalates to SYSTEM.
+- Those leaked credentials get reused on **Box 5**, a Windows workstation, where the svc_backup account provides WinRM access. A misconfigured backup service running with elevated privileges exposes an unquoted service path vulnerability, allowing the service binary to be replaced and executed under the Administrator context. From there, RDP provides a full graphical session, where RoguePlanet, a Windows Defender race-condition exploit, escalates the Administrator shell to SYSTEM.
 
 - The same credentials are reused once more on the Domain Controller **(Box 6)** as a valid domain account, triggering an ADCS ESC8 chain, where PetitPotam coerces the DC to authenticate, ntlmrelayx relays that auth to the undefended Web Enrollment endpoint, Certipy turns the resulting certificate into a TGT via PKINIT, and a final DCSync dumps every credential in the domain, including krbtgt.
 
@@ -82,11 +82,11 @@ Finally, a sudo -l check on the user recovered from the cracked credentials reve
 
 ### Box 5 : Rogue : 
 
-Box 5 is a standard Windows 10 workstation with an intentionally minimal attack surface no web app, no exotic service. What makes it exploitable is that SMB is enabled (the default on virtually every Windows box) and a local account belongs to the Administrators group. The credentials for that account are the ones leaked from the NFS share on Box 4.
+Box 5 is a standard Windows 10/11 workstation designed to resemble a typical enterprise endpoint. It exposes no web application and no unnecessary services, keeping the initial attack surface intentionally minimal. Access comes through a dedicated backup account, svc_backup, whose credentials are leaked from the NFS share on Box 4. The account is allowed to authenticate remotely through WinRM, providing a limited command-line foothold without administrative privileges.
 
-SMB is the protocol behind Windows file sharing, printer sharing, and remote administration. Using those credentials, NetExec (nxc) authenticates over SMB and remotely flips a registry key to enable RDP  no prior graphical access needed. From there, we connect over RDP as the local admin and land on the desktop.
+The escalation path relies on a misconfigured backup service. The service runs with elevated privileges but uses an improperly quoted binary path, creating an unquoted service path vulnerability. Because svc_backup has permission to restart the service, an attacker can exploit Windows' path resolution behavior by placing a malicious executable in the expected search path. When the service is restarted, Windows executes the attacker-controlled binary with the service's privileges, resulting in an Administrator shell.
 
-Escalation to SYSTEM comes via RoguePlanet, a public exploit targeting a race condition in Windows Defender. The technique mounts a crafted ISO and abuses the timing window between when Defender writes a file and when it finishes scanning it  hijacking execution in that gap and inheriting Defender's SYSTEM-level privileges. No kernel exploit, no UAC bypass, no extra tooling  just the race.
+With administrative access obtained, Remote Desktop is enabled and a graphical session is established as the local Administrator account. From this session, RoguePlanet is executed, a public exploit targeting a race condition in Windows Defender. The technique abuses the timing window between file creation and Defender's processing of the file, allowing execution to inherit Defender's SYSTEM-level privileges. No kernel exploit, no UAC bypass, no additional software just a vulnerable service configuration followed by the Defender race condition.
 
 
 ### Box 6 : DC01 : 
