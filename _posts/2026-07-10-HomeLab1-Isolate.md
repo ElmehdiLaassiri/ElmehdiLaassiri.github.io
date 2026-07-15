@@ -1696,7 +1696,7 @@ Password: N7!qV4#zL9@xP2$k
 
 [Backup-Service]
 Username: svc_backup
-Password: backup123
+Password: Backup@123
 
 [Database]
 Username: svc_database
@@ -1959,13 +1959,13 @@ Create the svc_backup user with a home directory (this user will be found in the
 sudo useradd -m svc_backup
 ```
 
-Set the password to backup123 (this credential will be stored in the /srv/share/windows-creds.zip on the NFS share) :
+Set the password to "Backup@123" (this credential will be stored in the /srv/share/windows-creds.zip on the NFS share) :
 
 ```bash
 sudo passwd svc_backup
 ```
 
-Password can be anything , we're using : backup123
+Password can be anything , we're using : "Backup@123"
 
 Give svc_backup sudo access to run nano without requiring a password. This is the misconfiguration that enables escalation :
 
@@ -2062,7 +2062,7 @@ We first need to create the users that will be involved in the scenario.
 Open a PowerShell terminal as Administrator and create the backup account:
 
 ```Powershell
-net user svc_backup backup123 /add
+net user svc_backup "Backup@123" /add
 ```
 
 This account will later be discovered through the leaked credentials on the NFS share and will serve as our initial foothold on the machine.
@@ -2517,7 +2517,7 @@ Now we need to Promote it to a Domain Controller , but that's for the next secti
 
 #### Scenario : 
 
-##### Foothold : 
+##### Attack Chain : 
 
 **Install Active Directory Domain Services :** 
 
@@ -2598,3 +2598,397 @@ Review Options We just leave the default settings :
 For now we can ignore the Prerequesits checks and start the Insatallation :  
 
 <img width="1332" height="844" alt="image" src="https://github.com/user-attachments/assets/60edeb94-0ba8-41ec-9d40-d6095675d135" />
+
+Once the Installation is completed it will Restart automatically :
+
+
+**Verify Domain Controller :**
+
+After promotion, your machine is no longer a standalone Windows server. It becomes the root of identity and authentication for your lab.
+
+- Login changes
+
+<img width="1271" height="765" alt="image" src="https://github.com/user-attachments/assets/ba8e1301-e35e-4a8b-a6c5-b5ca9276dd3e" />
+
+Before we had : 
+
+```text
+DC\Administrator
+```
+
+It means we are using the local Administrator account stored on this machine.
+
+After promotion:
+
+```text
+Isolate\Administrator
+```
+
+This means We are authenticating against Active Directory in the Isolate domain.
+
+Technically:
+
+- Local accounts live in the SAM database
+- Domain accounts live in Active Directory (NTDS.dit)
+
+The Domain Controller becomes the authority for:
+- Users
+- Computers
+- Groups
+- Kerberos tickets
+- LDAP queries
+- Group Policy
+
+Now to verify further , Open Powershell : 
+
+```powershell
+Get-ADDomain
+```
+
+This queries Active Directory through the PowerShell AD module.
+
+It confirms:
+
+- Domain exists
+- AD DS is working
+- Correct DNS namespace
+
+<img width="1232" height="633" alt="image" src="https://github.com/user-attachments/assets/83d94510-7b21-4a6f-8ad2-efaa4726359e" />
+
+The most important component for us is DNS : 
+
+```powershell
+Get-Service DNS
+```
+
+<img width="1003" height="300" alt="image" src="https://github.com/user-attachments/assets/8824ec85-7e64-4e8e-9edb-9b2cac620d2a" />
+
+A Domain Controller normally runs DNS because AD uses DNS for:
+
+- Domain discovery
+- Kerberos service location
+- LDAP discovery
+- Replication
+
+**Create Low Privilege Domain User :**
+
+To keep things simple we will keep the same user from Box 5 : 
+
+```bash
+svc_backup : "Backup@123"
+```
+
+*Quick Note* : 
+
+To enable Copy paste : 
+
+- VM menu → Manage → Install VMware Tools...
+- Inside the VM , Open Powershell :
+
+```powershell
+D:\setup.exe
+```
+- Follow the Installation guide .
+- Reboot the Machine .
+- Shut down the VM
+- VM → Settings → Options tab → Guest Isolation
+- Check Enable copy and paste
+- (Optional) Check Enable drag and drop
+
+<img width="1416" height="476" alt="image" src="https://github.com/user-attachments/assets/e592e362-c566-4062-aeac-0cebc2f86390" />
+
+Now back to the Scenario . 
+
+We can create our user via Powershell : 
+
+```powershell
+New-ADUser `
+-Name "svc_backup" `
+-SamAccountName "svc_backup" `
+-UserPrincipalName "svc_backup@Isolate.local" `
+-AccountPassword (ConvertTo-SecureString "Backup@123" -AsPlainText -Force) `
+-Enabled $true `
+-PasswordNeverExpires $true
+```
+
+Then we verify : 
+
+```powershell
+Get-ADUser svc_backup
+```
+
+<img width="1205" height="501" alt="image" src="https://github.com/user-attachments/assets/ffbfa036-b2cf-44c5-91e7-8b1575d968bb" />
+
+Now we can verify that our user can authenticate against Active Directory and perform LDAP queries.
+
+First, we provide the credentials of our domain user:
+
+```powershell
+$cred = Get-Credential
+```
+
+<img width="1061" height="512" alt="image" src="https://github.com/user-attachments/assets/8d86ad88-b911-4d8d-8e4c-b335f9f2fc18" />
+
+These credentials will be used by PowerShell when communicating with the Domain Controller.
+
+Next, we use them to query Active Directory:
+
+```powershell
+Get-ADUser svc_backup -Credential $cred
+```
+
+<img width="1030" height="459" alt="image" src="https://github.com/user-attachments/assets/05abbaa1-be65-45ff-822f-c41be264473f" />
+
+This command performs an LDAP query against Active Directory using the supplied credentials.
+
+The query succeeds, which confirms that:
+
+- The svc_backup account exists in the domain.
+- The password is valid.
+- The account is able to authenticate against the Domain Controller.
+- The account can perform LDAP queries as a normal domain user.
+
+*Important distinction*
+
+This does not mean the user can log in interactively to the Domain Controller.
+
+For example, attempting:
+
+```powershell
+runas /user:Isolate\svc_backup cmd
+```
+
+tries to create an interactive logon session on the Domain Controller.
+
+<img width="998" height="304" alt="image" src="https://github.com/user-attachments/assets/888111de-51dd-4b88-a66d-dab8dfc1d880" />
+
+Because this server is a Domain Controller, interactive logon rights are restricted through Windows security policies. Regular domain users are typically not allowed to open a local command session on the DC unless they have been granted the appropriate user rights.
+
+Therefore, the runas failure does not indicate that the credentials are invalid. It only shows that this account is not allowed to obtain an interactive logon session on the Domain Controller.
+
+For our ESC8 scenario, this is expected behavior. The account only needs valid domain authentication, not an interactive shell on the DC.
+
+
+**Install ADCS (Active Directory Certificate Services) :**
+
+Now we need to set up our ADCS . 
+
+The goal is to create the certificate infrastructure that ESC8 abuses.
+
+The attack path should look like this : 
+
+```text
+svc_backup credentials
+          |
+          v
+PetitPotam or PrinSpooler coerces DC authentication
+          |
+          v
+NTLM relay
+          |
+          v
+ADCS Web Enrollment (/certsrv)
+          |
+          v
+Certificate for DC machine account
+```
+
+First we Install the ADCS role :
+
+Open Server Manager -->   Manage --> Add Roles and Features --> Active Directory Certificate Services 
+
+<img width="1483" height="787" alt="image" src="https://github.com/user-attachments/assets/d2aa1451-2693-44df-919c-00905f4c3d46" />
+
+Then we Install both : 
+
+Certification Authority And Certificate Authority Web Enrollment
+
+<img width="1201" height="616" alt="image" src="https://github.com/user-attachments/assets/ef38e7b4-c77b-446d-83ac-9110f49e7f94" />
+
+Why do we need both ? 
+
+- *Certification Authority (CA)*
+
+This is the certificate issuer.
+
+Think:
+
+```text
+Computer/User --> Certificate Request --> Enterprise CA --> Certificate issued
+```
+
+*Certificate Authority Web Enrollment*
+
+This creates:
+
+```text
+http://DC/certsrv
+```
+
+This is the vulnerable web interface used in ESC8. 
+
+Without Web Enrollment:
+- No /certsrv endpoint
+- No NTLM relay target
+- No ESC8
+
+For Select Role services , keep the default ones : 
+
+<img width="988" height="578" alt="image" src="https://github.com/user-attachments/assets/c836a4e8-d9a2-438f-8cf3-24c0bf821f83" />
+
+And we just start the Installation : 
+
+<img width="1093" height="609" alt="image" src="https://github.com/user-attachments/assets/1ca41fa4-33c4-4365-af23-2788ed92cde8" />
+
+
+**Configure ADCS :**
+
+Once the Installation is done , Server Manager will show: "Configure Active Directory Certificate Services" .
+
+<img width="1179" height="733" alt="image" src="https://github.com/user-attachments/assets/35dc723e-b71f-454b-8ab9-e28a196f124c" />
+
+Click it and choose : 
+
+```text
+Certification Authority
+Certificate Authority Web Enrollment
+```
+
+<img width="1145" height="697" alt="image" src="https://github.com/user-attachments/assets/1f80170a-cecf-473f-bf51-79c2ddda9739" />
+
+Then for the Setup we select Enterprise CA because this integrates with AD.
+
+<img width="1128" height="603" alt="image" src="https://github.com/user-attachments/assets/591f0e7e-eda5-4d72-b0e9-c418b059a66d" />
+
+CA type , we will choose Root CA because this is our first CA.
+
+<img width="1007" height="585" alt="image" src="https://github.com/user-attachments/assets/f9e14a9a-f222-49f7-966b-11fdfd1f54f4" />
+
+Then we create a new Private Key : 
+
+<img width="1024" height="646" alt="image" src="https://github.com/user-attachments/assets/994fc856-4b41-474f-a6b3-6dca8d42ca52" />
+
+The defaults are fine : 
+
+```text
+RSA
+2048 bits
+SHA256
+```
+
+<img width="1054" height="612" alt="image" src="https://github.com/user-attachments/assets/e718a515-58fd-4711-b539-f0f01b7e2bb0" />
+
+Then for name "ISOLATE-DC-CA" .
+
+<img width="935" height="596" alt="image" src="https://github.com/user-attachments/assets/33f624de-18c6-447e-9ab4-5966375df13b" />
+
+And for Validity we'll keep the default which is 5 years : 
+
+<img width="1088" height="652" alt="image" src="https://github.com/user-attachments/assets/c173eddf-6f6d-49e8-8f02-5427432c14bc" />
+
+For the DB , default as well : 
+
+<img width="1003" height="656" alt="image" src="https://github.com/user-attachments/assets/b605d347-3a75-4852-916a-4664be72b72c" />
+
+Then finally we start the configuration : 
+
+<img width="923" height="627" alt="image" src="https://github.com/user-attachments/assets/39eb270b-4837-4cd4-9c83-99d6d1d09c87" />
+
+Once done : 
+
+<img width="1060" height="652" alt="image" src="https://github.com/user-attachments/assets/05a8f504-2ab2-436d-9074-327c992bf9ce" />
+
+We can verify it by going to : 
+
+Tools --> Certificate Authority :
+
+<img width="1094" height="340" alt="image" src="https://github.com/user-attachments/assets/00d4053a-354f-494c-be0a-6c9c403d1c0b" />
+
+And we should find our new CA :
+
+<img width="1053" height="417" alt="image" src="https://github.com/user-attachments/assets/53d0da73-4955-4933-93cc-e097a5f81d09" />
+
+Seeing the CA here confirms that:
+
+- The Certificate Authority service (CertSvc) is installed.
+- The CA is registered inside Active Directory.
+- The CA database has been initialized.
+- The CA is ready to issue certificates to domain users and computers.
+
+The current architecture is now:
+
+```text
+                 Active Directory Domain
+                         |
+                         |
+                  Enterprise CA
+                         |
+                         |
+                  ISOLATE-DC-CA
+                         |
+          +--------------+--------------+
+          |
+          |
+    Certificate Templates
+          |
+          |
+    Domain Users / Computers
+```
+
+At this stage, the CA exists, but we still need to verify the Web Enrollment component because ESC8 specifically targets the HTTP enrollment interface.
+
+**Step 1 — Verify /certsrv**
+
+On the DC, open a browser:
+
+```text
+http://localhost/certsrv
+```
+
+<img width="1467" height="634" alt="image" src="https://github.com/user-attachments/assets/9701d4c2-7657-46ba-90cd-c2ecede6d7d3" />
+
+Perfect this confirms that Web Enrollment is working . 
+
+**Step 2 — Verify IIS Authentication**
+
+Open IIS Manager
+
+Navigate to : 
+
+```text
+Sites --> Default Web Site --> certsrv --> Authentication
+```
+
+<img width="1550" height="652" alt="image" src="https://github.com/user-attachments/assets/86397287-26e7-4f7e-bf43-a0da9ce46b50" />
+
+Check:
+
+```text
+Windows Authentication     Enabled
+Anonymous Authentication   Disabled
+```
+
+The reason is ESC8 relies on NTLM authentication being accepted by the Web Enrollment endpoint.
+
+<img width="1250" height="532" alt="image" src="https://github.com/user-attachments/assets/7c11f739-e8c8-46e9-ae1f-355ecf474fe2" />
+
+Perfect everything is set , now onto step 3 .
+
+**Step 3 — Check EPA**
+
+Still in:
+
+```text
+Windows Authentication --> Advanced Settings
+```
+<img width="1500" height="535" alt="image" src="https://github.com/user-attachments/assets/ccdc382d-1d9c-4dd7-bbd7-7a9f313a6c14" />
+
+Check Extended Protection, For our vulnerable lab:
+
+**Off** or Accept NOT Require
+
+<img width="1199" height="539" alt="image" src="https://github.com/user-attachments/assets/71117ff9-0950-4a78-9dbb-724baa1cbc40" />
+
+Perfect , we're all set now . 
+
+
