@@ -1,4 +1,4 @@
----
+<img width="1213" height="820" alt="image" src="https://github.com/user-attachments/assets/0a5fef4b-89f3-459d-bb50-44520bd14ee2" />---
 title: " Home Lab 1 : Isolate "
 date: 2026-07-10 00:00:00 +0000
 categories: [Home Lab ]
@@ -2386,3 +2386,215 @@ Now Box 5 is done . Let's move on to Box 6 .
 ### Box 6 : DC01 : 
 
 #### ISO Installation : 
+
+For this one we will need a Windows Server 2019 , Microsoft offers free trial for 180 days that we can use , simply navigate to : 
+
+```bash
+http://microsoft.com/fr-fr/evalcenter/download-windows-server-2019
+```
+
+<img width="1629" height="785" alt="image" src="https://github.com/user-attachments/assets/7c6a0b35-88af-4818-8390-2dd0e5a4bd16" />
+
+I will install the English version . 
+
+Once the Installation is completed , Create a new VM : 
+
+- CPU: 2 vCPUs minimum (4 if your machine can handle it).
+- RAM: 4 GB minimum, 8 GB recommended.
+- Disk: 60–80 GB.
+- Network adapter: NAT for now .
+
+<img width="880" height="475" alt="image" src="https://github.com/user-attachments/assets/c17d6ca4-7f28-45cb-be30-fa8138821e57" />
+
+Then : 
+
+<img width="723" height="487" alt="image" src="https://github.com/user-attachments/assets/90d2315e-cd5c-46bb-89bd-6a9740694573" />
+
+We will install the ISO later : 
+
+<img width="784" height="514" alt="image" src="https://github.com/user-attachments/assets/c71d6d2f-7ea0-48a6-a17c-32a1b31ff640" />
+
+Then we select Windows Server 2019 :
+
+<img width="860" height="375" alt="image" src="https://github.com/user-attachments/assets/b55c6c7e-ffad-4882-be51-42521870797d" />
+
+For the name , we named it DC01 : 
+
+<img width="889" height="507" alt="image" src="https://github.com/user-attachments/assets/9318bc3a-eac0-4bbe-a402-b8a553af27f1" />
+
+Select UEFI , we don't need Secure Boot for this one : 
+
+<img width="904" height="523" alt="image" src="https://github.com/user-attachments/assets/69c90a94-3502-48a1-ab9b-2ca26d1b89b2" />
+
+For the Processor config : 
+
+<img width="917" height="497" alt="image" src="https://github.com/user-attachments/assets/25a4528b-bdf4-4237-a1db-b23ae3704d26" />
+
+For RAM i gave it around 6GB but 4 will work just fine : 
+
+<img width="1058" height="524" alt="image" src="https://github.com/user-attachments/assets/54e2d460-b7c2-4535-9ea6-542301f9d57a" />
+
+For Network we're using NAT for now , we will modify it later once we install everything we need . 
+
+<img width="872" height="549" alt="image" src="https://github.com/user-attachments/assets/a4af6bb9-59ac-455f-b0ad-40063c7fc911" />
+
+For the Logic Type :
+
+<img width="1049" height="550" alt="image" src="https://github.com/user-attachments/assets/7c9e44c6-3639-4e9d-a808-61765d7a3d1c" />
+
+For the Disk type we will choose the recommended one : 
+
+<img width="930" height="515" alt="image" src="https://github.com/user-attachments/assets/0fd2ceae-a1f9-4c1b-9b73-9fb0755e8078" />
+
+For the disk , we choose to create a new disk : 
+
+<img width="811" height="511" alt="image" src="https://github.com/user-attachments/assets/0a1968f1-dd34-484e-8d65-754bd045c956" />
+
+Then we store everything in a single file : 
+
+<img width="1070" height="536" alt="image" src="https://github.com/user-attachments/assets/3a97e740-9b56-44b5-a9ae-e61109ce9ea5" />
+
+For the disk file we will leave it as it is :
+
+<img width="825" height="521" alt="image" src="https://github.com/user-attachments/assets/229dd97e-b835-4fb9-af47-314e2ff55aff" />
+
+Then we click Finish : 
+
+<img width="880" height="524" alt="image" src="https://github.com/user-attachments/assets/6635f630-99c9-41ac-b49e-d84a6461638c" />
+
+Once the VM is created , we will edit the VM : 
+
+<img width="1623" height="649" alt="image" src="https://github.com/user-attachments/assets/ca90a54a-ede3-4deb-b267-066381b5efdb" />
+
+We then choose our ISO file that we just downloaded : 
+
+Then we start the machine : 
+
+<img width="1094" height="322" alt="image" src="https://github.com/user-attachments/assets/87bc751b-2335-4962-bc67-a3997f4f1e9a" />
+
+We just wait : 
+
+<img width="1111" height="623" alt="image" src="https://github.com/user-attachments/assets/9046f291-17c4-46ed-b2aa-7b4aa9b69d3f" />
+
+Finally we start the Installation : 
+
+<img width="1049" height="551" alt="image" src="https://github.com/user-attachments/assets/a50f5f6f-3011-43ee-a6c6-bd8bac81b4b9" />
+
+We select the Windows Server Desktop Experience :
+
+<img width="1045" height="585" alt="image" src="https://github.com/user-attachments/assets/99381512-a59d-4815-85d1-ee30d49b08b7" />
+
+Just agree to the terms and services : 
+
+<img width="999" height="563" alt="image" src="https://github.com/user-attachments/assets/c9ad04e4-3083-4794-b11a-d7d7d927674c" />
+
+For the Installation we choose the Custom one :
+
+<img width="1164" height="590" alt="image" src="https://github.com/user-attachments/assets/2ca0abc9-3be1-4579-9a3a-e4166cc11a91" />
+
+From there we choose the Drive we specified earlier : 
+
+<img width="965" height="580" alt="image" src="https://github.com/user-attachments/assets/5f0878f7-df8d-4df2-bb01-25a70c23fae0" />
+
+From there we just wait : 
+
+<img width="1467" height="755" alt="image" src="https://github.com/user-attachments/assets/296aff7d-9ae3-412d-a19b-89769f616445" />
+
+Once the Insatallation is finished , we will need to create a password for our Administrator account : 
+
+```text
+Password@123456789
+```
+
+<img width="1375" height="701" alt="image" src="https://github.com/user-attachments/assets/fefa8399-235f-4d2d-87b8-531f31851111" />
+
+From there , our VM is fully Setup : 
+
+<img width="1464" height="784" alt="image" src="https://github.com/user-attachments/assets/698a31cd-4de5-4219-a1da-db3db3ce43d0" />
+
+Now we need to Promote it to a Domain Controller , but that's for the next section : 
+
+
+#### Scenario : 
+
+##### Foothold : 
+
+**Install Active Directory Domain Services :** 
+
+First , open Server Manager .
+
+Then go to Manage --> Add Roles And Features : 
+
+<img width="1361" height="821" alt="image" src="https://github.com/user-attachments/assets/b0b0ee6f-e753-44c1-8a7c-5602ab058b9f" />
+
+Select *Role-based or feature-based installation* : 
+
+<img width="1295" height="830" alt="image" src="https://github.com/user-attachments/assets/700ee0ab-ce2a-4b74-a2d6-8cfe12d2fe58" />
+
+Then we choose our Server : 
+
+<img width="1354" height="838" alt="image" src="https://github.com/user-attachments/assets/3660ed44-1ed6-4216-8b18-fefa03cc8ce3" />
+
+Select Active Directory Domain Services :
+
+<img width="1178" height="680" alt="image" src="https://github.com/user-attachments/assets/6d628857-d3ff-4d7b-beff-2357a510757a" />
+
+Then add Feature : 
+
+<img width="1273" height="853" alt="image" src="https://github.com/user-attachments/assets/86e07e34-fbd9-4433-b0c4-ddd6bf425427" />
+
+We don't need other features , so we just click Next : 
+
+<img width="1261" height="856" alt="image" src="https://github.com/user-attachments/assets/c27fe2db-d18e-4c23-be36-646a01463aef" />
+
+For this one we just click Next :
+
+<img width="1213" height="820" alt="image" src="https://github.com/user-attachments/assets/3d5598cf-18aa-464e-b30b-cc7958082f88" />
+
+Finally we click Install , I also checked the Reset machine if required :
+
+<img width="1250" height="822" alt="image" src="https://github.com/user-attachments/assets/660ffcd4-6c06-4d87-b74b-0ed72e9bf327" />
+
+Once done we just close everything :
+
+<img width="1249" height="843" alt="image" src="https://github.com/user-attachments/assets/41372fb3-3aa4-48be-8837-e25ca5e40a07" />
+
+Once the Installation is done , we should see a yellow notification flag :
+
+<img width="1258" height="828" alt="image" src="https://github.com/user-attachments/assets/5fe59d45-bc2d-463c-91fa-9dc9451aea38" />
+
+Just Click Promote this server to a Domain Controller : 
+
+We then Select Add a New Forest and we name it Isolate.local . 
+
+<img width="1423" height="819" alt="image" src="https://github.com/user-attachments/assets/4fe34550-1cda-47e2-aeef-60fa9e8a29d0" />
+
+For the Domain Controller Options , Select Windows Server 2016 for both , then enable DNS Server and Global Catalog , and finally set the DSRM Password : 
+
+```text
+P@123456789#
+``` 
+
+*Quick Note : DSRM is a special boot mode used to repair or restore Active Directory when the domain controller cannot start normally.*
+
+<img width="1186" height="770" alt="image" src="https://github.com/user-attachments/assets/2a67b50b-f57c-4f4c-9d31-9953335749d0" />
+
+For DNS Delegation , we just ignore the Warning : 
+
+<img width="1230" height="813" alt="image" src="https://github.com/user-attachments/assets/4b7125b2-4606-421f-9546-afadf9389b82" />
+
+For the Netbios , no modifications needed : 
+
+<img width="1246" height="811" alt="image" src="https://github.com/user-attachments/assets/721ad2ec-3b02-485a-8498-788faba605e5" />
+
+For the Paths , we keep the default ones : 
+
+<img width="1260" height="846" alt="image" src="https://github.com/user-attachments/assets/2f17968d-6edd-41e7-9f2e-dd1b60ccb997" />
+
+Review Options We just leave the default settings : 
+
+<img width="1207" height="804" alt="image" src="https://github.com/user-attachments/assets/dd6df9ee-ce56-4a61-8f07-1df22794d276" />
+
+For now we can ignore the Prerequesits checks and start the Insatallation :  
+
+<img width="1332" height="844" alt="image" src="https://github.com/user-attachments/assets/60edeb94-0ba8-41ec-9d40-d6095675d135" />
