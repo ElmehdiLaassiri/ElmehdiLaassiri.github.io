@@ -2992,3 +2992,428 @@ Check Extended Protection, For our vulnerable lab:
 Perfect , we're all set now . 
 
 
+### Networking : 
+
+#### Creating the NIC : 
+
+Before we touch a single box, we need to get the network right. We don't want a flat network where Kali can just spray the whole subnet and reach the Domain Controller directly. That's not how a real engagement looks , and it defeats the point.
+
+Instead we're going to build two segments , much like a real-world DMZ sitting in front of an internal corporate network :
+
+- A Public segment , where our Kali attacking machine lives alongside the only internet-facing box (WEB01). This is our entry point.
+- An Internal segment , a fully isolated network holding the rest of the Linux boxes and the Windows side (Rogue + DC01). Nothing here can reach the internet , and nothing on the outside can reach it directly.
+
+The only thing bridging those two worlds is WEB01 , which sits with one foot in each network (a dual-homed host). Once we get our foothold on it , we'll drop a Ligolo-ng agent there and use it as a pivot to tunnel into the internal segment. Until then , the internal boxes are completely dark from Kali's point of view , exactly like they should be.
+
+```text
+
+                 Internet
+                    |
+              [ NAT / VMnet8 ]        <-- Public segment (192.168.153.0/24)
+                 |        |
+              Kali      WEB01  ( eth0 : NAT )
+                          |
+                          | ( eth1 : Internal )   <-- the pivot
+                          |
+        ======[ LAN Segment : internal ]======   <-- Internal segment (10.10.10.0/24)
+          |         |          |         |
+     Dirty2Geddon  Backup    ORNN     Rogue --- DC01
+       (Box 2)    (Box 3)  (Box 4)   (Win10)  (Server 2019)
+
+```
+
+First we need to add the Network Interface , for this one open VMWare then go to Edit --> Virutal Network Editor : 
+
+<img width="1059" height="518" alt="image" src="https://github.com/user-attachments/assets/04eeb280-0cef-46e4-8edb-a9a7614419f6" />
+
+From there click Change Settings , accept the UAC popup , then we can add a New Network : 
+
+<img width="824" height="619" alt="image" src="https://github.com/user-attachments/assets/a1ff022a-a74a-4aef-a627-af2476c190ad" />
+
+Select Host Only , since we want a private Network that isn't connected to the internet : 
+
+<img width="950" height="592" alt="image" src="https://github.com/user-attachments/assets/ebc93301-94ef-496d-9106-6f2432b60b54" />
+
+Our Subnet IP is 10.10.10.0 and for the Subnet Mask it's 255.255.255.0 since we want /24 for this lab . 
+
+We don't need automatic DHCP to be enabled . 
+
+Leave Connect host virtual adapter to this network unchecked since we don't want the VMs to be accessible , not even from my Host machine .
+
+It will by default name it VMnet0 or 4 or whatever number you specified , we can then rename it to Internal and hit apply . 
+
+<img width="956" height="590" alt="image" src="https://github.com/user-attachments/assets/78249d90-5b62-40db-8df1-71f533e57086" />
+
+Now that our Network Interface is created , we need to modify each of the VMs to use our Internal Network instead : 
+
+#### Dirty2Geddon : 
+
+Edit VM --> Network Adapter --> Custom --> Choose Internal . 
+
+<img width="1501" height="851" alt="image" src="https://github.com/user-attachments/assets/6d4a752b-7f29-475e-ab50-c163bbf41b34" />
+
+#### Backup :
+
+Edit VM --> Network Adapter --> Custom --> Choose Internal . 
+
+<img width="1429" height="551" alt="image" src="https://github.com/user-attachments/assets/b7391b62-1e38-4a1a-b56a-45a9805ebc79" />
+
+#### Fail2Copy : 
+
+For this one we will keep the first NIC and add a second one : 
+
+Edit VM --> Add --> Network Adapter --> Custom --> Choose Internal . 
+
+<img width="1561" height="837" alt="image" src="https://github.com/user-attachments/assets/362e7f40-540e-4b29-8bca-e363c44ac54b" />
+
+Now we should have 2 NIC for this one : 
+
+<img width="1531" height="798" alt="image" src="https://github.com/user-attachments/assets/b94c75bf-9523-43a0-a716-b9ea8f1abb78" />
+
+#### ORNN / DC01 / Rogue : 
+
+Same as Backup and Dirt2Geddon : 
+
+Edit VM --> Network Adapter --> Custom --> Choose Internal . 
+
+#### IP Addressing : 
+
+Since we left DHCP disabled on our Internal network , none of these boxes will get an address on their own. That's on purpose , we assign every IP by hand so we know exactly what's talking to what , and we deliberately leave off a default gateway on each internal NIC , so even if something misbehaves , it has no route out.
+
+Here's the addressing plan for 10.10.10.0/24 :
+
+- Fail2Copy (internal NIC)	10.10.10.10	
+- DirtyGeddon2	10.10.10.20	
+- Backup	10.10.10.30	
+- ORNN	10.10.10.40	 
+- Rogue	10.10.10.50	
+- DC01	10.10.10.100	
+
+**Quick Notes :**
+
+*DC01 isn't part of this addressing chain at all, it's a self-contained scenario that just happens to share the same wire. We'll set it up on its own at the end, pointing DNS at itself.*
+*ORNN will serve as the DNS Server for all 5 machines except the DC since it needs to be its own DNS server*
+
+
+##### ORNN : 
+
+We're starting with ORNN since it's about to become the DNS server every other box depends on, it needs to be up and answering before the rest of the machines are told to point at it.
+
+For ORNN's DNS role, the lightest option that fits is dnsmasq , way less overhead than standing up full BIND9 for something that just needs to answer a handful of internal lookups (and no internet access means there's nothing upstream to forward to anyway).
+
+Since apt install needs internet access, we temporarily leave ORNN's adapter on NAT while we install packages, and switch it to Internal once we're done. In VM Settings → Network Adapter, this is the same dropdown from before, just flip it back to NAT for now.
+
+<img width="1383" height="774" alt="image" src="https://github.com/user-attachments/assets/db417925-ef6a-4f0b-b7dc-0455a6e1e014" />
+
+```bash
+sudo apt update
+sudo apt install dnsmasq -y
+
+sudo nano /etc/dnsmasq.conf
+```
+
+Now inside of the file , for the Interface keep the same as the one you have once you do *ip a* :
+
+```bash
+# only listen on the internal interface, not the whole box
+interface=ens32
+bind-interfaces
+
+# static hostnames for the lab boxes
+address=/DirtyGeddon/10.10.10.20
+address=/Fail2Copy/10.10.10.10
+address=/backup/10.10.10.30
+address=/ORNN/10.10.10.40
+address=/Rogue/10.10.10.50
+
+# no upstream forwarding — this network has no internet anyway
+no-resolv
+```
+
+<img width="1243" height="856" alt="image" src="https://github.com/user-attachments/assets/2e1bca72-762e-4e3c-afa8-de5e9dc5e653" />
+
+Now flip the adapter back : VM Settings → Network Adapter → Custom → Internal. (if it doesn't change just reboot the VM) :
+
+<img width="1051" height="574" alt="image" src="https://github.com/user-attachments/assets/c3c72a53-0b89-4f82-aa28-d9276cc48713" />
+
+With that done, ORNN's NIC loses its NAT-assigned DHCP address, so we assign the static one it's supposed to have (in this case it's ens32) :
+
+```bash
+sudo nano /etc/network/interfaces
+
+auto ens32
+iface ens32 inet static
+    address 10.10.10.40
+    netmask 255.255.255.0
+```
+
+No dns-nameservers line here, ORNN resolves for itself. We point its own resolver at itself :
+
+```bash
+sudo nano /etc/resolv.conf
+
+nameserver 127.0.0.1
+```
+
+Restart both services to apply everything :
+
+```bash
+sudo systemctl restart networking
+sudo systemctl restart dnsmasq
+sudo systemctl enable dnsmasq
+```
+<img width="1315" height="874" alt="image" src="https://github.com/user-attachments/assets/137491c4-40ff-469d-9799-6a58cd8797f7" />
+
+Quick check, ORNN should now resolve its own DNS records :
+
+```bash
+nslookup Fail2Copy 127.0.0.1
+Or
+dig Fail2Copy @127.0.0.1 
+```
+
+<img width="989" height="673" alt="image" src="https://github.com/user-attachments/assets/eb578c83-7478-4e05-b415-1622be1a2e79" />
+
+Perfect our DNS is working , the Refused is probably from IPV6 request . that's why we checked again with dig and it worked perfectly .
+
+Now let's move to the other boxes . 
+
+##### Fail2Copy : 
+
+First we need to identify which Interface is the NAT and which one is the Internal one : 
+
+```bash
+ip a
+```
+
+<img width="1152" height="558" alt="image" src="https://github.com/user-attachments/assets/a278e27b-9e7f-4eb8-a467-afbabd64910e" />
+
+In this case the one that's already assigned is the NAT , and the one that is empty is the Internal network NIC (ens37 in this case) .
+
+We only touch ens37 here, ens33 stays exactly as it is (DHCP, that's what keeps its internet access for the initial foothold) :
+
+To assign the IP address manually , we need to modify the /etc/network/interfaces file to add the IP address , mask and DNS Server which is the same IP as the ORNN machine . 
+
+```bash
+su -
+nano /etc/network/interfaces
+
+auto ens37
+iface ens37 inet static
+    address 10.10.10.10
+    netmask 255.255.255.0
+    dns-nameservers 10.10.10.40
+```
+
+For the rest either comment it or delete it : 
+
+<img width="958" height="544" alt="image" src="https://github.com/user-attachments/assets/5ff590c1-c6d5-4daa-bb4f-60ee28137a3f" />
+
+Now we need to restart the Networking service : 
+
+```bash
+systemctl restart networking
+```
+
+<img width="1077" height="586" alt="image" src="https://github.com/user-attachments/assets/df63d2f4-7279-4056-80aa-d7ada2a520a9" />
+
+We see that now we have an IP address assigned to our machine on the ens37 Interface . 
+
+Now finally we just modify our resolv.conf file so that it uses the ORNN machine as its primary DNS , so that it can do name resolution for Internal machines : 
+
+```bash
+nano /etc/resolv.conf 
+
+# Inside it :
+nameserver 10.10.10.40
+```
+
+<img width="765" height="374" alt="image" src="https://github.com/user-attachments/assets/a1019826-ea3c-4342-a7c9-897acddb5a56" />
+
+Now moving on to the second Box . 
+
+##### Dirty2Geddon : 
+
+For Ubuntu it uses netplan, check which config file actually exists before editing it :
+
+```bash
+ls /etc/netplan/
+```
+
+No *00-installer-config.yaml* here like you might expect, Ubuntu 24.04's installer generates 50-cloud-init.yaml instead, since it's cloud-init driving the network setup on first boot. That's the one we edit :
+
+```bash
+sudo nano /etc/netplan/50-cloud-init.yaml
+
+network:
+  version: 2
+  ethernets:
+    ens33:
+      dhcp4: no
+      addresses:
+        - 10.10.10.20/24
+      nameservers:
+        addresses: [10.10.10.40]
+```
+
+Again, no routes line, no gateway, on purpose. Apply it , and for the DNS it's the ORNN's IP Address . 
+
+Just comment what's already inside the file or delete it :
+
+<img width="1189" height="665" alt="image" src="https://github.com/user-attachments/assets/589d39c3-d020-4fd7-8559-587a665f82f6" />
+
+Again, no routes line, no gateway, on purpose. Apply it :
+
+```bash
+sudo netplan apply
+```
+<img width="1331" height="714" alt="image" src="https://github.com/user-attachments/assets/37f9a86e-03c0-400c-9c53-5995f874126d" />
+
+We see that our IP address is now set for the ens33 interface . 
+
+**Quick Note :**
+
+Because this file is cloud-init managed, there's a chance cloud-init regenerates it back to DHCP on the next reboot. If your static IP mysteriously reverts after a restart, that's why, fix it permanently with :
+
+```bash
+sudo nano /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+
+network: {config: disabled}
+```
+
+That tells cloud-init to leave netplan alone from here on.
+
+<img width="1329" height="632" alt="image" src="https://github.com/user-attachments/assets/99c26713-1eb3-41b5-b53c-a491a0b10bd6" />
+
+Now finally we just modify our resolv.conf file so that it uses the ORNN machine as its primary DNS , so that it can do name resolution for Internal machines : 
+
+```bash
+nano /etc/resolv.conf 
+
+# Inside it :
+nameserver 10.10.10.40
+```
+
+<img width="1284" height="622" alt="image" src="https://github.com/user-attachments/assets/e4b7fe80-caae-45b6-b6de-8858d3eb744e" />
+
+Perfect , now moving on to the third Box . 
+
+
+##### Backup : 
+
+This is a Debian machine , so the file to modify is */etc/network/interfaces* :
+
+First check what the name of the interface is : 
+
+```bash
+ip a
+```
+
+<img width="1114" height="575" alt="image" src="https://github.com/user-attachments/assets/95595a56-3928-478c-a303-bb0e18807204" />
+
+In this case it is ens32 , now we modify our configuration file , again the DNS IP is going to be the ORNN machine's IP . 
+
+```bash
+su -
+nano /etc/network/interfaces
+
+auto ens32
+iface ens32 inet static
+    address 10.10.10.30
+    netmask 255.255.255.0
+    dns-nameservers 10.10.10.40
+```
+
+Then we restart the Networking Service : 
+
+```bash
+sudo systemctl restart networking
+```
+
+<img width="1137" height="437" alt="image" src="https://github.com/user-attachments/assets/258a3a2b-96a4-4c95-b188-ad7a667e321b" />
+
+Our Ip is assigned without any issues . 
+
+Now finally we just modify our resolv.conf file so that it uses the ORNN machine as its primary DNS , so that it can do name resolution for Internal machines : 
+
+```bash
+nano /etc/resolv.conf 
+
+# Inside it :
+nameserver 10.10.10.40
+```
+
+<img width="1020" height="582" alt="image" src="https://github.com/user-attachments/assets/a720a207-bf1b-4725-b8c4-83caf6906973" />
+
+
+##### Rogue : 
+
+Windows gets its static IP and DNS through the GUI, same dialog, one extra field this time :
+
+- 1/ Control Panel → Network and Sharing Center → etho0
+
+<img width="1315" height="711" alt="image" src="https://github.com/user-attachments/assets/b5eaa3ca-df48-407d-9b5a-4c620c7f0e81" />
+
+- 2/ Properties --> IPV4 --> Properties :
+
+- 3/ Choose Use the following IP address :
+
+```text
+IP address : 10.10.10.50
+Subnet mask : 255.255.255.0
+Default gateway : leave blank
+Preferred DNS : 10.10.10.40
+OK out of both dialogs.
+```
+
+<img width="1220" height="541" alt="image" src="https://github.com/user-attachments/assets/15933ba0-1a2b-425e-b002-cdcedec5b2af" />
+
+Now just click Ok then close all the old tabs , open a cmd and check the new IP address : 
+
+```cmd
+ipconfig
+```
+
+<img width="1586" height="675" alt="image" src="https://github.com/user-attachments/assets/7da02bef-6421-4e9d-8acc-5de92e5d5e42" />
+
+Perfect , we have our new IP address . 
+
+
+##### DC01 : 
+
+
+DC01 stays completely self-contained, no dependency on ORNN. It just needs to point at itself, 127.0.0.1 :
+
+- 1/ Control Panel → Network and Sharing Center → etho0
+
+<img width="1211" height="533" alt="image" src="https://github.com/user-attachments/assets/15e85a97-6db3-42ef-858f-4abd9495c93d" />
+
+- 2/ Properties --> IPV4 --> Properties :
+
+<img width="1277" height="816" alt="image" src="https://github.com/user-attachments/assets/5a6875d9-a25f-4955-b461-8a1fa467fd88" />
+
+- 3/ Choose Use the following IP address :
+
+```text
+IP address : 10.10.10.100
+Subnet mask : 255.255.255.0
+Default gateway : leave blank
+Preferred DNS : 127.0.0.1
+OK out of both dialogs.
+```
+
+<img width="1397" height="673" alt="image" src="https://github.com/user-attachments/assets/102cd07d-6d66-4248-aa70-aa5f23f49ce9" />
+
+Now just click Ok then close all the old tabs , open a cmd and check the new IP address : 
+
+<img width="1374" height="644" alt="image" src="https://github.com/user-attachments/assets/90eaea2b-cbcd-46a3-925a-d1caf4283fc9" />
+
+**Quick Note :** 
+
+Pointing DC01's own DNS at 127.0.0.1 isn't just a formality here, it's actually required once you promote it to a Domain Controller later. AD needs to register its own SRV records into its own DNS zone, and a DC is expected to be authoritative for and resolve against itself. Since this box was never meant to depend on ORNN in the first place, that requirement lines up naturally with the design, nothing to reconcile.
+
+Now everything is set . We can test the Connectivity . 
+
+
+#### Testing connectivity : 
+
