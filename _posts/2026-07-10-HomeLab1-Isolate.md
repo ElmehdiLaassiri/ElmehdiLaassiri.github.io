@@ -3095,6 +3095,7 @@ Here's the addressing plan for 10.10.10.0/24 :
 *ORNN will serve as the DNS Server for all 5 machines except the DC since it needs to be its own DNS server*
 
 
+
 ##### ORNN : 
 
 We're starting with ORNN since it's about to become the DNS server every other box depends on, it needs to be up and answering before the rest of the machines are told to point at it.
@@ -3178,6 +3179,9 @@ Perfect our DNS is working , the Refused is probably from IPV6 request . that's 
 
 Now let's move to the other boxes . 
 
+
+
+
 ##### Fail2Copy : 
 
 First we need to identify which Interface is the NAT and which one is the Internal one : 
@@ -3231,6 +3235,9 @@ nameserver 10.10.10.40
 <img width="765" height="374" alt="image" src="https://github.com/user-attachments/assets/a1019826-ea3c-4342-a7c9-897acddb5a56" />
 
 Now moving on to the second Box . 
+
+
+
 
 ##### Dirty2Geddon : 
 
@@ -3299,6 +3306,7 @@ nameserver 10.10.10.40
 Perfect , now moving on to the third Box . 
 
 
+
 ##### Backup : 
 
 This is a Debian machine , so the file to modify is */etc/network/interfaces* :
@@ -3346,6 +3354,8 @@ nameserver 10.10.10.40
 <img width="1020" height="582" alt="image" src="https://github.com/user-attachments/assets/a720a207-bf1b-4725-b8c4-83caf6906973" />
 
 
+
+
 ##### Rogue : 
 
 Windows gets its static IP and DNS through the GUI, same dialog, one extra field this time :
@@ -3377,6 +3387,22 @@ ipconfig
 <img width="1586" height="675" alt="image" src="https://github.com/user-attachments/assets/7da02bef-6421-4e9d-8acc-5de92e5d5e42" />
 
 Perfect , we have our new IP address . 
+
+I also changed the Hostname to match the one we specified in the DNS config , first open PS as administrator : 
+
+```powershell
+Rename-Computer -NewName Rogue
+Restart-Computer 
+```
+
+<img width="1181" height="397" alt="image" src="https://github.com/user-attachments/assets/85151e71-5ce0-42ae-b816-662fe6c97152" />
+
+Now our hostname should be Rogue once it restarts : 
+
+<img width="1101" height="401" alt="image" src="https://github.com/user-attachments/assets/ee5ca024-8b7a-4026-8fd0-909ef252cfab" />
+
+Perfect . 
+
 
 
 ##### DC01 : 
@@ -3416,4 +3442,78 @@ Now everything is set . We can test the Connectivity .
 
 
 #### Testing connectivity : 
+
+
+##### Fail2Copy : 
+
+First we will test the NAT : 
+
+For this we need to be able to ping it from our Kali machine.
+
+First get the IP address of the NAT NIC , it's the ens33 interface : 
+
+<img width="1002" height="551" alt="image" src="https://github.com/user-attachments/assets/d2e389ca-8fba-440a-aa3b-77e532de09ed" />
+
+Now from our Kali machine : 
+
+<img width="1006" height="683" alt="image" src="https://github.com/user-attachments/assets/33540790-481f-4244-9a21-973873a9b3c1" />
+
+Kali reaching the NAT-side IP confirms the public segment/entry point works, and it not reaching the internal IP confirms the isolation is holding, that's checks 1 and 2 from our plan in one go.
+
+Now let's check if we can ping the other internal hosts .
+
+For the Windows machine , we need to specify the IP address instead of the Hostname . But for the other Linux boxes it shouldn't be an issue . 
+
+<img width="974" height="784" alt="image" src="https://github.com/user-attachments/assets/07d8222f-8a77-4091-a716-7732c8710538" />
+
+We see that we are able to ping all the Linux boxes , Windows blocks ICMP by default , so as long as we are able to ping Copy2Fail from the windows Box we should be good :
+
+<img width="906" height="517" alt="image" src="https://github.com/user-attachments/assets/e3393832-3699-4908-996f-d2d60c908ad6" />
+
+We are able to ping our Linux box , which means the only reason why the ping didn't work is bcs ICMP was blocked . 
+
+**Trouble Shooting DNS :**
+
+If your internal name resolution is acting weird (pinging a hostname gives you back 127.0.0.1 or 127.0.1.1 instead of the actual internal IP) , check /etc/hosts before anything else , on both the box you're testing from AND on ORNN itself. 
+
+If these machines were cloned from the same template , odds are /etc/hosts still has every box's name hanging off that 127.0.1.1 line from before the clones got renamed , and since Linux checks /etc/hosts before it ever asks DNS , that stale entry wins every time no matter how correctly dnsmasq is configured. 
+
+Clean it up so each box only references itself , and while you're in ORNN's dnsmasq.conf , throw a no-hosts line in there too , dnsmasq reads its own local /etc/hosts by default and will happily serve you those same stale entries as "DNS answers" if you don't tell it not to.
+
+In my case i cloned ORNN from Backup so i had this issue : 
+
+<img width="1156" height="394" alt="image" src="https://github.com/user-attachments/assets/ab49c547-2dd8-4c1b-bc33-4854dc45529b" />
+
+Notice how it says 127.0.1.1 ; change it to the normal localhost 127.0.0.1 then restart the DNS service : 
+
+```bash
+sudo nano /etc/hosts
+
+127.0.0.1   localhost
+127.0.1.1   ORNN
+```
+
+Then we restart the service : 
+
+```bash
+sudo systemctl restart dnsmasq
+```
+
+<img width="1006" height="602" alt="image" src="https://github.com/user-attachments/assets/50db3641-52cf-47b5-ac2e-84c77b90901c" />
+
+Now if we test the Ping from the Fail2Copy box : 
+
+<img width="954" height="692" alt="image" src="https://github.com/user-attachments/assets/9e392063-f4ac-46ce-a57a-ef16f56a2c47" />
+
+We see that it works perfectly . 
+
+If we even try to ping it from the Windows box using Hostname only , it will work : 
+
+<img width="874" height="320" alt="image" src="https://github.com/user-attachments/assets/7a94ecca-b396-45ce-b653-5500bf1ef040" />
+
+Let's move to the other boxes . 
+
+##### Dirty2Geddon : 
+
+
 
