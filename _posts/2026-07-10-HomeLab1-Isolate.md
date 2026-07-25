@@ -3624,10 +3624,10 @@ Now the Networking section is done . We can move on to the Attack phase .
 
 
 
-### Attack Phase : 
+## Attack Phase : 
 
 
-#### Fail2Copy (Initial Access) : 
+### Fail2Copy (Initial Access) : 
 
 Now checking our Kali machine : 
 
@@ -3841,7 +3841,7 @@ ssh -i fail2copy_root root@192.168.32.147
 Now that we made our access more persistent , we can move to the Pivoting section . 
 
 
-#### Pivoting/Tunneling : 
+### Pivoting/Tunneling : 
 
 
 Now notice how our Kali machine is unable to reach any of the internal Hosts :
@@ -3951,7 +3951,7 @@ Now we can test pinging the Internal IP address for our Host directly from our K
 
 Perfect we are able to reach the Internal Network . Moving on to exploiting the Intenal Hosts :
 
-#### Dirty2Geddon : 
+### Dirty2Geddon : 
 
 First we scan the Entire Internal Network to get an idea of how many hosts exist on the Network . 
 
@@ -4164,7 +4164,7 @@ We see that we get a Root Shell once our exploit is executed .
 Now we can move to the Third Box . 
 
 
-#### Backup : 
+### Backup : 
 
 This one is the 10.10.10.30 : 
 
@@ -4317,7 +4317,7 @@ Perfect we got our Root access .
 Now let's move to the other boxes .
 
 
-#### ORNN : 
+### ORNN : 
 
 Checking the nmap scan from earlier , the ORNN machine is the host with this IP address : 10.10.10.40 as we can see from the open ports . 
 
@@ -4340,7 +4340,7 @@ Looking at the version , we find SAMBA 3.0 , and from the nmap script , we find 
 Now let's deeply enumerate each port :
 
 
-##### NFS : 
+#### NFS : 
 
 First let's see if we can mount the NFS server on our kali machine without authentication .
 
@@ -4431,7 +4431,7 @@ We see that we got our Root Access by abusing the nano binary .
 Now let's check the other ways we can get Root on this box : 
 
 
-##### Samba : 
+#### Samba : 
 
 Looking at the scan result , we see that the host is running SAMBA 3.0 , if we check searchsploit for known Vulnerabilities : 
 
@@ -4478,7 +4478,7 @@ Now moving on to the Redis server :
 
 
 
-##### Redis : 
+#### Redis : 
 
 First let's try if we can access the Redis server : 
 
@@ -4565,7 +4565,7 @@ We manage to get Root with 3 different Paths for this machine .
 Now let's move the Rogue machine . 
 
 
-#### Rogue : 
+### Rogue : 
 
 
 Now back to our nmap scan we found 2 Windows Boxes , 1 was the DC and the second one was a Windows Workstation . 
