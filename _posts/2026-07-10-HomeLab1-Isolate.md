@@ -2798,6 +2798,20 @@ Therefore, the runas failure does not indicate that the credentials are invalid.
 For our ESC8 scenario, this is expected behavior. The account only needs valid domain authentication, not an interactive shell on the DC.
 
 
+#### Important Note : 
+
+The steps below install ADCS directly on the DC itself. This is worth doing once for practice, since it's the simplest way to see how the Certification Authority and Web Enrollment roles are configured but it won't work for the actual **attack phase**, and it's worth understanding why before moving on.
+
+ESC8 works by coercing a machine into authenticating, then relaying that authentication to a CA's Web Enrollment endpoint to request a certificate on its behalf. If the CA is installed on the DC itself, the machine being coerced (DC01$) and the machine receiving the relayed authentication (also DC01) end up being the exact same box. Windows blocks this outright a built-in anti-reflection check in the NTLM authentication layer (msv1_0) detects when a machine's own authentication is being relayed back to itself and rejects it, regardless of protocol, signing settings, or EPA configuration. There's no toggle to disable this, it's a hard block by design.
+
+This is also why, in real-world Active Directory deployments, ADCS should never be installed on a Domain Controller in the first place — beyond the relay issue, it unnecessarily expands the DC's attack surface for something that has no need to live there.
+
+So for the attack path, we'll stand up a separate CA server a plain domain-joined member server, not a second DC and relay the coerced DC01$ authentication to that box instead. Two distinct machines on either end of the relay, no reflection block, and a setup that mirrors how ESC8 actually plays out against real environments.
+
+
+##### Optional  : 
+
+
 **Install ADCS (Active Directory Certificate Services) :**
 
 Now we need to set up our ADCS . 
@@ -3018,7 +3032,131 @@ Check Extended Protection, For our vulnerable lab:
 
 <img width="1199" height="539" alt="image" src="https://github.com/user-attachments/assets/71117ff9-0950-4a78-9dbb-724baa1cbc40" />
 
-Perfect , we're all set now . 
+These are the steps to set up a CA on the same machine as the DC as covered above, unless we had a way to defeat the reflection protection itself, this setup can't be abused for ESC8. It's here purely for completeness/practice.
+
+##### Setting up the ADCS for the lab  : 
+
+First we will set up a new Windows Server , the same Steps as we did with the DC01 will be done to create the VM :
+
+<img width="1079" height="633" alt="image" src="https://github.com/user-attachments/assets/7c43038e-3ad3-4022-b61c-ac72593cc790" />
+
+For the Administrator Password : 
+
+```text
+Password.123456789
+```
+
+Now first we will remove the Old CA we had , since Having two CAs in the same AD forest can cause template conflicts (e.g., both trying to publish the same certificate templates to AD, or clashing on the DomainController template enrollment), which could make your new CA01 setup behave unpredictably or make it unclear later which CA actually issued/served a given cert during ESC8.
+
+Now back to our DC01 :
+
+```bash
+Server Manager → Remove Roles and Features → uncheck Active Directory Certificate Services
+```
+
+<img width="1171" height="722" alt="image" src="https://github.com/user-attachments/assets/58988fd4-eb9a-4400-98b6-820d5701fcee" />
+
+We should get this warning , which just means that we need to first uncheck Web Enrollment first , then comeback and uncheck the Certificate Authority :
+
+<img width="989" height="628" alt="image" src="https://github.com/user-attachments/assets/98a18542-e133-4ddf-85ba-27149893173e" />
+
+Done , now we go back to 
+
+```text
+Server Manager → Remove Roles and Features → uncheck Active Directory Certificate Services
+```
+
+<img width="1785" height="714" alt="image" src="https://github.com/user-attachments/assets/63e9dd6e-cc40-439c-bd17-3ca175d166b3" />
+
+We just click Next and Finally Remove : 
+
+<img width="1513" height="709" alt="image" src="https://github.com/user-attachments/assets/db419535-a6f3-490f-8226-0d5b7ea5cf46" />
+
+Now we restart the DC01 : 
+
+To confirm no ADCS is in place : 
+
+```bash
+Get-WindowsFeature ADCS*
+certutil -CAInfo
+```
+
+<img width="1136" height="455" alt="image" src="https://github.com/user-attachments/assets/154df577-18de-41dc-9cbb-b2ecfec389a8" />
+
+If this errors out saying no CA is configured, clean. If it still returns CA details, there's a stale entry.
+
+Now we can move to the CA01 machine . This time configuring the DNS , and joining the machine to the domain will be done via command line : 
+
+```powershell
+New-NetIPAddress -InterfaceAlias "Ethernet0" -IPAddress 10.10.10.101 -PrefixLength 24
+Set-DnsClientServerAddress -InterfaceAlias "Ethernet0" -ServerAddresses 10.10.10.100
+```
+
+<img width="1014" height="553" alt="image" src="https://github.com/user-attachments/assets/582bd67d-c504-4f41-b3f0-6df7799d5f3b" />
+
+Now that we got our static IP address and the DNS is the DC01 , we can join the machine to the domain :
+
+```powershell
+Add-Computer -DomainName "Isolate.local" -Credential (Get-Credential) -Restart
+```
+
+This will prompt for domain admin creds, then restart the box.
+
+<img width="1295" height="616" alt="image" src="https://github.com/user-attachments/assets/d04d8771-65fb-4247-8c53-9035f35ab4b6" />
+
+For the credentials :
+
+<img width="551" height="255" alt="image" src="https://github.com/user-attachments/assets/5eeb8e4c-b509-4c31-abe1-574d82daf237" />
+
+We need to enter the DC01 Administrator account that we set earlier when creating the DC01 : 
+
+```text
+Isolate\Administrator : Password@123456789
+```
+
+If the credentials were correct, the command executes silently and the machine restarts automatically. Once it boots back up, click "Other user" and you should see that it mentions the ISOLATE Domain now : 
+
+<img width="1357" height="735" alt="image" src="https://github.com/user-attachments/assets/cd7d89cf-db64-47eb-a04f-263060397174" />
+
+Now we just login with our CA01 machine using the local Administrator account : 
+
+We can also confirm the Domain join via Powershell : 
+
+```powershell
+Get-ComputerInfo | Select CsDomain, CsDomainRole
+```
+
+<img width="821" height="361" alt="image" src="https://github.com/user-attachments/assets/607be495-a9b4-4428-802a-373d86f61e3d" />
+
+We then change the Hostname to match CA01 :
+
+```bash
+Rename-Computer -NewName "CA01" -DomainCredential (Get-Credential) -Restart
+```
+
+Changing the Hostname of a domain joined machine requires domain authentication , so we need to specify the creds for the Domain Admin : 
+
+```text
+Isolate\Administrator : Password@123456789
+```
+
+Now we just Install both Web Enrollment and ADCS Role on the CA01 via Powershell :
+
+```powershell
+Install-WindowsFeature ADCS-Cert-Authority, ADCS-Web-Enrollment -IncludeManagementTools
+```
+
+<img width="1763" height="374" alt="image" src="https://github.com/user-attachments/assets/98042da6-8191-45d9-beb4-0984e32522f9" />
+
+Once done : 
+
+<img width="973" height="381" alt="image" src="https://github.com/user-attachments/assets/1d438483-e56f-4c8a-b339-3d62975422ec" />
+
+Now we open the Service Manager , and we should see a yellow flag again , this means we should complete the ADCS setup : 
+
+<img width="1229" height="646" alt="image" src="https://github.com/user-attachments/assets/b7c1cec1-88ea-4222-a47d-574e6e9a9f8d" />
+
+
 
 
 ### Networking : 
