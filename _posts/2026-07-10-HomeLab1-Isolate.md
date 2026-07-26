@@ -3034,6 +3034,7 @@ Check Extended Protection, For our vulnerable lab:
 
 These are the steps to set up a CA on the same machine as the DC as covered above, unless we had a way to defeat the reflection protection itself, this setup can't be abused for ESC8. It's here purely for completeness/practice.
 
+
 ##### Setting up the ADCS for the lab  : 
 
 First we will set up a new Windows Server , the same Steps as we did with the DC01 will be done to create the VM :
@@ -3087,14 +3088,19 @@ If this errors out saying no CA is configured, clean. If it still returns CA det
 
 Now we can move to the CA01 machine . This time configuring the DNS , and joining the machine to the domain will be done via command line : 
 
+First we need to get the NAT Ip address for the DC01 :
+
+<img width="656" height="361" alt="image" src="https://github.com/user-attachments/assets/524da5f2-b824-4d8a-9b51-89a85c122a3c" />
+
+DC01 IP : '192.168.32.151' . 
+
 ```powershell
-New-NetIPAddress -InterfaceAlias "Ethernet0" -IPAddress 10.10.10.101 -PrefixLength 24
-Set-DnsClientServerAddress -InterfaceAlias "Ethernet0" -ServerAddresses 10.10.10.100
+Set-DnsClientServerAddress -InterfaceAlias "Ethernet0" -ServerAddresses 192.168.32.151
 ```
 
-<img width="1014" height="553" alt="image" src="https://github.com/user-attachments/assets/582bd67d-c504-4f41-b3f0-6df7799d5f3b" />
+<img width="1045" height="344" alt="image" src="https://github.com/user-attachments/assets/c1499192-65dd-4401-bf88-17e31cc77319" />
 
-Now that we got our static IP address and the DNS is the DC01 , we can join the machine to the domain :
+Now that the DNS is the DC01 , we can join the machine to the domain :
 
 ```powershell
 Add-Computer -DomainName "Isolate.local" -Credential (Get-Credential) -Restart
@@ -3156,6 +3162,102 @@ Now we open the Service Manager , and we should see a yellow flag again , this m
 
 <img width="1229" height="646" alt="image" src="https://github.com/user-attachments/assets/b7c1cec1-88ea-4222-a47d-574e6e9a9f8d" />
 
+Now for the Confiugration : 
+
+- Credentials : use Isolate\Administrator (domain admin), since Enterprise CA setup requires Enterprise Admins group membership, not local admin rights.
+
+<img width="963" height="586" alt="image" src="https://github.com/user-attachments/assets/2c7c44ab-644c-43eb-8d35-a0ed35fa53dc" />
+
+- Role Services : check Certification Authority and Certification Authority Web Enrollment (the latter is what exposes the /certsrv/ HTTP interface ESC8 targets).
+
+<img width="1102" height="591" alt="image" src="https://github.com/user-attachments/assets/c9ae6b67-5615-4a91-ad65-7217d05421b9" />
+
+- Setup Type : Enterprise CA, since it needs AD integration to read/issue against AD-based templates like DomainController.
+
+<img width="997" height="594" alt="image" src="https://github.com/user-attachments/assets/ae1f8ec3-b5ec-4f5a-a788-bad96a38fc2b" />
+
+- CA Type : Root CA, since this is the only CA in the lab's PKI hierarchy.
+
+<img width="973" height="568" alt="image" src="https://github.com/user-attachments/assets/25d80e70-f1c4-470d-8455-fc65af77e65c" />
+
+- Private Key : Create a new private key (default).
+
+<img width="916" height="536" alt="image" src="https://github.com/user-attachments/assets/32ce5b5e-dc89-4a06-aed6-6b866509e6aa" />
+
+- Cryptography : defaults (RSA, 2048-bit, SHA256) are fine for a lab
+
+<img width="974" height="435" alt="image" src="https://github.com/user-attachments/assets/8c0c18c9-c105-49e1-a2e4-6f7ef6f0d975" />
+
+- CA Name : leave the auto-generated Common Name/DN as-is; nothing here needs customizing.
+
+<img width="865" height="430" alt="image" src="https://github.com/user-attachments/assets/b20857fa-bc41-4521-aaf6-8acdadba703d" />
+
+- Validity Period : default (5 years).
+
+<img width="905" height="549" alt="image" src="https://github.com/user-attachments/assets/cc602ff2-9ae2-4fab-8c34-ead9206678a1" />
+
+- Certificate Database : default paths.
+
+<img width="894" height="578" alt="image" src="https://github.com/user-attachments/assets/54122e8b-24a0-497f-98ff-1bee96c84461" />
+
+- Confirmation → click Configure.
+
+<img width="981" height="652" alt="image" src="https://github.com/user-attachments/assets/34a4506c-824a-4849-b1ee-f48bff25a8e9" />
+
+Once done : 
+
+<img width="1099" height="650" alt="image" src="https://github.com/user-attachments/assets/3460d17e-05ea-490e-a745-244b1c7ff10c" />
+
+We just reset the machine .
+
+Then we log in as the Domain Administrator not the Local Administrator : 
+
+```bash
+Isolate\Administrator : Password@123456789
+```
+
+From there we test if the CA was created successfully : 
+
+```bash
+certutil -CAInfo
+certutil -CATemplates
+```
+
+<img width="977" height="753" alt="image" src="https://github.com/user-attachments/assets/222e2f8d-6199-4760-b0fc-a268814333aa" />
+
+Everything is set : 
+
+**Establishing CA Trust for PKINIT Authentication :**
+
+Just One last thing : Before the attack can work, the DC needs to explicitly trust the CA's certificate for Kerberos certificate-based (PKINIT) authentication.
+
+After the wizard completes, one additional step is required before the CA can be used for PKINIT-based authentication (which ESC8 relies on). The DC needs to explicitly trust this CA for certificate-based logon — this is controlled by the NTAuthCertificates object in AD's Configuration partition.
+
+While an Enterprise Root CA is supposed to auto-publish itself there during install, this doesn't always propagate to the DC immediately. To ensure it's in place, export the CA certificate from CA01 and manually add it to the DC's NTAuth store:
+
+On CA01:
+
+```powershell
+certutil -ca.cert C:\ca01.cer
+```
+
+Transfer ca01.cer to DC01, then on DC01:
+
+```powershell
+certutil -enterprise -addstore NTAuth C:\ca01.cer
+certutil -pulse
+gpupdate /force
+```
+
+Verify it landed:
+
+```powershell
+certutil -viewstore -enterprise NTAuth
+```
+
+The CA01 certificate should now appear in the output. Without this step, Certipy's PKINIT authentication will fail with KDC_ERROR_CLIENT_NOT_TRUSTED even if the relay and certificate issuance worked perfectly.
+
+Now we've configured everything in the NAT Network , we need to setup the Internal Network now and ensure the connectivity .
 
 
 
