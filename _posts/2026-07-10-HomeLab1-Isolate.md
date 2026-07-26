@@ -5150,6 +5150,8 @@ The exploit abuses a timing window between file creation and Windows Defender's 
 
 At the time of writing, there is still no official patch for this vulnerability. It will likely be addressed in an upcoming Patch Tuesday, so by the time you're reading this, the exploit may no longer work on a fully patched system — which is also why it makes sense as a lab scenario: it documents a real, working 0-day at the time this lab was built, even if its shelf life is limited.``
 
+Now let's move to the final Attack . 
+
 
 ### DC01 / CA01 : 
 
