@@ -9,13 +9,13 @@ tags: [Active Directory, Windows, Linux, CVEs, Privilege Escalation, Pivoting, A
 
 ## Overview : 
 
-This lab contains 6 boxes. Each one requires a foothold exploit to gain initial access, followed by a separate privilege escalation exploit to reach root or SYSTEM  the technique depends on the OS.
+This lab contains 7 boxes , 6 attack targets and a dedicated Certificate Authority server (CA01) required for the ESC8 chain. Each one requires a foothold exploit to gain initial access, followed by a separate privilege escalation exploit to reach root or SYSTEM  the technique depends on the OS.
 
 We'll start by building the lab using VMware to run the different boxes. The network is split into two segments  an internal network and a public-facing one, much like a real-world DMZ. This means tunneling and pivoting are required to reach anything inside once you've landed on the edge.
 
 We'll first build the lab in VMware, and once everything is set up, we'll move to the attack phase using our Kali machine to compromise the entire network. Once every box is built, we'll break down the network architecture connecting them including how traffic actually gets from Kali into the internal segment.
 
-The chain mixes classic and recent CVEs  from Drupalgeddon2 to fresh 2026 kernel bugs like CopyFail, DirtyFrag, and RoguePlanet. Then an AD box, where we focus on a specific ADCS attack: ESC8.
+The chain mixes classic and recent CVEs  from Drupalgeddon2 to fresh 2026 kernel bugs like CopyFail, DirtyFrag, and RoguePlanet. Then an AD box, where we focus on a specific ADCS attack: ESC8 requiring a separate CA server (CA01) since relaying to a CA on the same machine as the DC is blocked by Windows' own NTLM reflection protection.
 
 Quick version of the full attack path: 
 
@@ -29,10 +29,10 @@ Quick version of the full attack path:
 
 - Those leaked credentials get reused on **Box 5**, a Windows workstation, where the svc_backup account provides WinRM access. A misconfigured backup service running with elevated privileges exposes an unquoted service path vulnerability, allowing the service binary to be replaced and executed under the Administrator context. From there, RDP provides a full graphical session, where RoguePlanet, a Windows Defender race-condition exploit, escalates the Administrator shell to SYSTEM.
 
-- The same credentials are reused once more on the Domain Controller **(Box 6)** as a valid domain account, triggering an ADCS ESC8 chain, where PetitPotam coerces the DC to authenticate, ntlmrelayx relays that auth to the undefended Web Enrollment endpoint, Certipy turns the resulting certificate into a TGT via PKINIT, and a final DCSync dumps every credential in the domain, including krbtgt.
+- The same credentials are reused once more on the Domain Controller **(Box 6)** as a valid domain account, triggering an ADCS ESC8 chain, where PetitPotam coerces the DC to authenticate, ntlmrelayx relays that auth to the Web Enrollment endpoint on CA01 (a dedicated CA server ADCS intentionally lives on a separate box from the DC to avoid Windows' NTLM reflection protection blocking the relay) .
 
 
-<img width="1600" height="1000" alt="svgviewer-png-output (1)" src="https://github.com/user-attachments/assets/6b8475f6-77dd-4b7a-8352-2fbb50e7025e" />
+<img width="1800" height="1300" alt="svgviewer-png-output (2)" src="https://github.com/user-attachments/assets/84bf34bd-4df4-4905-b2d8-a5b48ea73899" />
 
 
 ## Scenarios : 
@@ -93,7 +93,7 @@ With administrative access obtained, Remote Desktop is enabled and a graphical s
 
 ### Box 6 : DC01 : 
 
-The final box is a Windows Server 2019 Domain Controller the single point of trust for the whole domain, handling Kerberos authentication and hosting Active Directory. It also runs ADCS (Active Directory Certificate Services) with the Web Enrollment role, which exposes an HTTP certificate-request interface at http://DC/certsrv.
+The final box is a Windows Server 2019 Domain Controller the single point of trust for the whole domain, handling Kerberos authentication and hosting Active Directory. 
 
 A low-privileged domain user exists on the DC, deliberately reusing the same credentials as the local admin on Box 5 a realistic case of password reuse across systems.
 
@@ -110,6 +110,17 @@ The chain runs in four steps:
 - 4/ DCSync with that TGT, the attacker impersonates the DC and invokes MS-DRSR replication to dump every credential in the domain, including the krbtgt hash (Golden Ticket material) and the Domain Administrator hash.
 
 The domain is fully compromised.
+
+
+### Box 7 : CA01 :
+
+CA01 is a Windows Server 2019 domain joined member server not a Domain Controller, just a plain machine joined to Isolate.local. Its sole purpose in this lab is to host Active Directory Certificate Services with the Web Enrollment role, exposing the certificate request interface at http://CA01/certsrv.
+
+The reason CA01 exists as a separate box rather than running ADCS directly on DC01 comes down to how ESC8 works. The attack coerces DC01 into authenticating outbound, then relays that authentication to the CA's Web Enrollment endpoint to request a certificate on behalf of the DC's machine account. If the CA lives on the same machine as the DC, Windows' built-in NTLM reflection protection detects that a machine's own credentials are being relayed back to itself and blocks it silently no error, no certificate, just a clean failure. The only way ESC8 succeeds is with two distinct machines on either end of the relay: one being coerced, one receiving the relayed authentication.
+
+CA01 is configured as an Enterprise Root CA the only CA type that integrates with Active Directory and supports AD based certificate templates like DomainController, which ESC8 specifically targets. One additional post-install step is required: the CA's root certificate must be manually published into AD's NTAuthCertificates store and the DC forced to refresh it, otherwise the DC won't trust certificates issued by CA01 for Kerberos PKINIT authentication, and Certipy's TGT request will fail with KDC_ERROR_CLIENT_NOT_TRUSTED even if the relay itself worked perfectly.
+
+CA01 is not directly attacked it's infrastructure. But without it, the ESC8 chain doesn't exist.
 
 
 ## Lab Build : 
@@ -147,6 +158,10 @@ Windows 10/11 workstation with SMB enabled and a local administrator account con
 
 Windows Server 2019 configured as an Active Directory Domain Controller with DNS, ADCS, Web Enrollment, a reusable domain account, and certificate templates vulnerable to ESC8.
 
+**CA01:**
+
+Windows Server 2019, domain-joined member server (not a DC), running ADCS Enterprise Root CA + Certificate Enrollment Web Enrollment role. NTAuthCertificates manually published to AD post-install to enable PKINIT trust. Deliberately separate from DC01 to avoid NTLM reflection protection blocking the ESC8 relay.
+
 **Networking:**
 
 The lab is split into two segments:
@@ -155,6 +170,7 @@ The lab is split into two segments:
 - An isolated internal network containing all remaining Linux and Windows systems.
 
 The first machine is dual-homed and serves as the pivot point into the internal network. After compromise, Ligolo-ng creates transparent routing from Kali to the internal subnet, allowing native use of reconnaissance, exploitation, and Active Directory tooling.
+
 
 ### Box 1 : Fail2Copy : 
 
