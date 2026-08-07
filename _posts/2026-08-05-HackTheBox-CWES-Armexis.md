@@ -1,6 +1,6 @@
 ---
 title: " Hack The Box Armexis Walkthrough"
-date: 2026-08-06 00:00:00 +0000
+date: 2026-08-06 12:00:00 +0000
 categories: [CWES Preparation Path ]
 tags: [CWES Preparation, HackTheBox, Challenge , Web_Attacks ]
 ---
