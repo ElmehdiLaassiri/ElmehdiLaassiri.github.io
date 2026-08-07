@@ -152,10 +152,12 @@ Let's read the challenge/markdown.js file :
 
 This is a huge indicator of a command injection :)
 
-The url comes straight from a markdown image tag ![alt](url) that a user controls, and it's being dropped directly into a shell command string with no sanitization or escaping. execSync runs this through /bin/sh, so anything that breaks out of the "URL" context gets executed as a shell command.
+The url comes straight from a markdown image tag "alturl" that a user controls, and it's being dropped directly into a shell command string with no sanitization or escaping. execSync runs this through /bin/sh, so anything that breaks out of the "URL" context gets executed as a shell command.
 
-This is pretty simple notation tho : ![alt](url) :
-
+This is pretty simple notation tho : 
+```xml
+[alt](url) :
+```
 - ! : First this tells it that this is an image not a text .
 - alt : this is the message that will get show if the image doesn't exist .
 - url : this is where it will fetch the resource from .
