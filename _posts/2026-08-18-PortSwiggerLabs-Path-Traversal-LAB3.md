@@ -67,3 +67,9 @@ At the end this one worked :
 
 You can of course automate this by using Intruder or FFUF , but since there weren't too many , it was easier to test them manually .
 
+Now if we go back to our Lab , it should say Solved . 
+
+<img width="1750" height="822" alt="image" src="https://github.com/user-attachments/assets/1dd9d599-1a7f-4ecd-8677-78fa73c9f865" />
+
+That was all for this lab , see you in the next one :) 
+
