@@ -16,6 +16,7 @@ You can log in to your own account using the following credentials: wiener:peter
 
 
 ## Solution : 
+
 Before solving the lab, first let's quickly explain what CORS is and how it can be abused.
 
 In a normal setup, a website can only read data from its own domain, makes sense. So if we login to bank.com, a random evil.com website can't just make a request to one of our website's endpoints (eg bank.com/api/balance/account/1), it should be blocked by the browser.
