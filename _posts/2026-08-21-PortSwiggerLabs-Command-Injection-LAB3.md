@@ -1,6 +1,6 @@
 ---
 title: " PortSwiggerlabs: Blind OS command injection with output redirection "
-date: 2026-08-21 00:00:00 +0000
+date: 2026-08-21 13:00:00 +0000
 categories: [PortSwiggerLabs , Command Injection ]
 tags: [PortSwiggerLabs ,Command Injection , Challenge , Web_Attacks ]
 ---
