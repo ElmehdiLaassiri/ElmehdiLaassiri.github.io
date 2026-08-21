@@ -1,6 +1,6 @@
 ---
-title: " PortSwiggerlabs: OS command injection, simple case "
-date: 2026-08-21 00:00:00 +0000
+title: " PortSwiggerlabs: Blind OS command injection with time delays "
+date: 2026-08-21 12:00:00 +0000
 categories: [PortSwiggerLabs , Command Injection ]
 tags: [PortSwiggerLabs ,Command Injection , Challenge , Web_Attacks ]
 ---
