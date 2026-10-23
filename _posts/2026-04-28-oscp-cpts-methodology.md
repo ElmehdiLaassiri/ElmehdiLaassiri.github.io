@@ -2255,7 +2255,7 @@ DS-Replication-Get-Changes-All
 it s game over . 
 
 ```
-#### Generic Right Over DC machine : Linux :
+#### Generic Write Over DC machine : Linux :
 
 ```bash
 #How this attack works ? First we need a user to have generic ALL or genric Right over the
