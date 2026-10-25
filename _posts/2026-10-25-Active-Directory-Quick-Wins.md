@@ -383,7 +383,7 @@ So the difference between the two :
 
 ### If No Quick Wins are there :
 
-If you've worked through everything above and still don't have DA, that's normal — it just means the environment isn't trivially broken, and the real work begins. This is where the quick-win checklist ends and a full methodology takes over, so I'll keep it to the shape of the approach, not the details:
+If you've worked through everything above and still don't have DA, that's normal, it just means the environment isn't trivially broken, and the real work begins. This is where the quick-win checklist ends and a full methodology takes over, so I'll keep it to the shape of the approach, not the details:
 
 #### 1/ Collect BloodHound and hunt ACL paths :
 
