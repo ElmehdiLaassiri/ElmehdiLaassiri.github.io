@@ -1,5 +1,5 @@
 ---
-title: " Home Lab 1 : Minimal AD Setup on Debian "
+title: " Home Lab 1 : Minimal Active Directory Setup on Debian "
 date: 2026-07-10 00:00:00 +0000
 categories: [Home Lab ]
 tags: [Active Directory, Homelab]
@@ -246,4 +246,274 @@ In both modes, the host itself always has direct access to the VMs through the b
 
 
 **3/ Create the network via CLI (XML) path**
+
+Now with libvirt, we can either describe the network in an XML file and hand it over, or click through virt-manager's GUI. Both end up in the same place, libvirt reads whatever you give it, then stores its own canonical copy at **/etc/libvirt/qemu/networks/lab-net.xml**. From that point on, that's the file libvirt actually uses . 
+
+So now let's start by creating the file , we'll name it **lab-net.xml**
+
+```XML
+<network>
+  <name>lab-net</name>
+  <bridge name='virbr-lab' stp='on' delay='0'/>
+  <ip address='10.10.10.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='10.10.10.100' end='10.10.10.200'/>
+    </dhcp>
+  </ip>
+</network>
+```
+
+The main thing here is that we have no <forward/> tag , this is what makes this isolated , if you wanted NAT you could add **<forward mode='nat'/>** just under the <name> line and libvirt would set up NAT rules automatically.
+
+<img width="739" height="306" alt="image" src="https://github.com/user-attachments/assets/f0238cac-ae27-47e9-9a30-abf6cc4e5833" />
+
+Then we just tell lib-virt to use it first we register the network with lib-virt :
+
+```bash
+virsh net-define ~/Lab/lab-net.xml
+```
+
+Then to make life easier, we'll make it so that it comes up at every boot : 
+
+```bash
+virsh net-autostart lab-net
+```
+
+And finally we can start it : 
+
+```bash
+virsh net-start lab-net
+```
+<img width="862" height="216" alt="image" src="https://github.com/user-attachments/assets/4bd4f6dc-932d-48ff-af06-cf2c5b8b8dff" />
+
+If it gives you a permission error like the one i got, this is normal since even if we are a member of the libvirt group , when we run vish commands it defaults to **quemu:///session** a per user libvirt instance that runs under YOUR user, not root.
+
+So our user can : 
+- Define networks 
+- Set autostart 
+- NOT create actual Linux bridge interfaces (since it will need root on the host networking stack)
+
+Now to fix this, we can switch the default to System mode and make it persistent : 
+
+```bash
+echo 'export LIBVIRT_DEFAULT_URI=qemu:///system' >> ~/.bashrc
+source ~/.bashrc
+```
+
+Now to verify :
+
+```bash
+virsh uri
+```
+
+It should now say qemu:///system 
+
+<img width="847" height="233" alt="image" src="https://github.com/user-attachments/assets/85056a04-da8b-4934-b1aa-82d89c1b974a" />
+
+Perfect, now we can rerun the commands to start our new Network Interface. 
+
+If you want you can destroy the old one just to avoid any issues : 
+
+```bash
+virsh net-destroy lab-net 2>/dev/null
+virsh net-undefine lab-net
+```
+
+Then redo everything : 
+
+```bash
+virsh net-define ~/Lab/lab-net.xml
+virsh net-autostart lab-net
+virsh net-start lab-net
+```
+
+<img width="876" height="380" alt="image" src="https://github.com/user-attachments/assets/d9d90a4f-090c-4ccc-9ab3-43914bf180e6" />
+
+Now our libvirt virtual network is set . 
+
+**4/ Create the network via GUI path (virt-manager)**
+
+If you want to add it from the GUI , just open Virt-Manager and go to :  
+
+Edit --> Connection Details --> Virtual Networks tab --> + button.
+
+```text
+name lab-net
+IPv4 10.10.10.0/24
+DHCP range 10.10.10.100 10.10.10.200
+```
+
+
+<img width="1220" height="1092" alt="image" src="https://github.com/user-attachments/assets/5d77bd19-a5ba-4024-baa4-3cdd8fd77416" />
+
+
+**5/ Verifying :**
+
+Now if we check Virt Manager : 
+
+<img width="1199" height="748" alt="image" src="https://github.com/user-attachments/assets/c2ccf09c-1b41-4cda-b8d9-600672acb402" />
+
+We can see our New virtual network created , we can also verify using virsh : 
+
+```bash
+virsh net-list --all
+``` 
+
+You should see the lab-net network , by default our host will also get an IP address on the bridge (we alread set it up in the XML file , the 10.10.10.1) 
+
+```bash
+ip addr show virbr-lab
+```
+
+<img width="1124" height="315" alt="image" src="https://github.com/user-attachments/assets/71b80fa0-b9cb-40df-be19-f9fd00e198e4" />
+
+We can also try pinging our IP on the bridge : 
+
+<img width="698" height="234" alt="image" src="https://github.com/user-attachments/assets/fd8f4fc2-9226-4c3e-b0ba-32b435cae95e" />
+
+Perfect now the Networking section is pretty much done. 
+
+
+### ISO Installation : 
+
+Now for this section , we will need these :  
+
+┌──────────────────────────────────────────────┬─────────────────────────────────────────────────────────────────────┬─────────────────────────────┬──────────────┐
+│                     What                     │                                 Why                                 │           Source            │ Trial length │
+├──────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────┼─────────────────────────────┼──────────────┤
+│ Windows Server 2022 (or 2019)                │ DC + CA role                                                        │ Microsoft Evaluation Center │ 180 days     │
+├──────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────┼─────────────────────────────┼──────────────┤
+│ Windows 11 Enterprise                        |  The 2 client VMs                                                    │ Microsoft Evaluation Center │ 90 days      │
+├──────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────┼─────────────────────────────┼──────────────┤
+│ virtio-win ISO                               │ Windows drivers for virtio disks/NICs — makes VMs noticeably faster │ Fedora People repo          │ —            │
+└──────────────────────────────────────────────┴─────────────────────────────────────────────────────────────────────┴─────────────────────────────┴──────────────┘
+
+We will have 1 Windows 2022 server , 1 Windows 2019 server , 1 Windows 11 and 1 Windowd 10 : 
+
+**Windows Server:**
+
+We can get a windows server 2022 directly from microsoft eval center : 
+
+```bash
+https://www.microsoft.com/fr-fr/evalcenter/evaluate-windows-server-2019
+https://www.microsoft.com/fr-fr/evalcenter/evaluate-windows-server-2022
+```
+
+<img width="1705" height="620" alt="image" src="https://github.com/user-attachments/assets/8c45f81d-fdcc-4122-a01e-bb87b70cc82c" />
+
+Make sure u get the ISO file not the VHS : 
+
+They will ask you to fill in a form : 
+
+<img width="1412" height="1002" alt="image" src="https://github.com/user-attachments/assets/1330b681-f6e5-463e-ad0a-40b1ada3b2c6" />
+
+Once done you just choose the version you need  i chose the french one : 
+
+<img width="1774" height="849" alt="image" src="https://github.com/user-attachments/assets/3fe28312-d4ce-43d4-b656-c2ef4d15bb96" />
+
+**Windows Enterprise :**
+
+Same thing as the Windows server , we can get it directly from Eval center : 
+
+```bash
+https://www.microsoft.com/fr-fr/evalcenter/download-windows-11-enterprise
+``` 
+
+**Grab the virtio-win ISO**
+
+Virtio is used by QEMU to make things waaay faster. Instead of emulating real hardware (like a SATA disk or an Intel NIC which works, but is slow because QEMU has to simulate every tiny thing that real hardware does), QEMU can expose virtio devices a fake kind of device that only exists inside VMs, designed from scratch to be fast. 
+
+The catch: since virtio doesn't exist in real PCs, Windows doesn't ship with drivers for it. That's why we need to load them manually during install.
+
+I don't fully get it tbf , but what you should get is Windows doesn't ship with this driver , and for that we need to download it separately and we need this so that it is faster :)
+
+```bash
+wget https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso
+```
+
+Now we should have everything that we need : 
+
+<img width="1535" height="380" alt="image" src="https://github.com/user-attachments/assets/4a327532-38c5-4624-aea0-9fa18eed5e89" />
+
+
+### VM Configuration
+
+#### DC01 : 
+
+This will be the Windows 2022 Server.
+
+These are the specs :
+- Hostname: DC01
+- OS: Windows Server 2022 Standard (Desktop Experience)
+- RAM: 4 GB
+- vCPU: 2
+- Disk: 60 GB (qcow2, thin-provisioned so it only uses what's written)
+- Firmware: UEFI (via OVMF)
+- Network: lab-net, static IP 10.10.10.10
+
+These will be the steps for all the other machines as well : 
+
+First create a New virtual Machine : 
+
+<img width="777" height="634" alt="image" src="https://github.com/user-attachments/assets/8576902c-0c20-49aa-a53e-df917f8a4f5b" />
+
+Click on Browse then Browse Local : 
+
+<img width="865" height="424" alt="image" src="https://github.com/user-attachments/assets/d81343fa-a1c8-4e44-b37c-cea9461539ca" />
+
+Choose our 2022 ISO image , change the OS to Unknown and hit forward :
+
+<img width="688" height="389" alt="image" src="https://github.com/user-attachments/assets/b3205326-d70f-4e59-9879-25ba7b564a6a" />
+
+Give it the RAM and the CPU specified in the specs .
+
+<img width="607" height="411" alt="image" src="https://github.com/user-attachments/assets/e0b23b1e-3f8d-46ec-ab2b-aa96aef34b40" />
+
+For the Storage 60 Gb is enough .
+
+The name will be DC01 , Network Selection Select Lab-net and make sure you check the Customize configuration before install and finally hit Finish. 
+
+<img width="819" height="522" alt="image" src="https://github.com/user-attachments/assets/7a71ae9d-4f2c-4cb5-90c1-b00fed165b15" />
+
+Now once you hit Finish , we should still configure some few things : 
+
+**Overview tab**
+- Change Firmware from "BIOS" to UEFI x86_64: /usr/share/OVMF/OVMF_CODE_4M.fd. (Required for Windows 11 later, also good practice for Server.)
+- Chipset: leave as Q35.
+
+<img width="946" height="564" alt="image" src="https://github.com/user-attachments/assets/8669130a-6773-4f2a-a01d-b3af9ed341bf" />
+
+**CPU tab**
+
+Expand Topology --> check Manually set CPU topology --> 1 socket, 2 cores, 1 thread. Not strictly necessary but makes the VM look cleaner to Windows.
+
+<img width="700" height="522" alt="image" src="https://github.com/user-attachments/assets/271c2f1d-8271-4d09-a8e8-0ab5294095a5" />
+
+**SATA Disk 1 tab:**
+
+- If you want virtio for speed: change Disk bus from SATA to VirtIO. (You'll need to load the driver during install , remember the section where we installed the virtio-win.iso)
+- If you want zero hassle: leave it as SATA. Slower but works out of the box.
+
+<img width="829" height="582" alt="image" src="https://github.com/user-attachments/assets/3bdab428-0427-460f-bb44-75637c2023f7" />
+
+**NIC tab:**
+
+- Change Device model from e1000e (or rtl8139) to virtio. Faster (remember Virtio means faster hh) 
+- MAC address: i will let virt-manager auto-generate it. 
+
+<img width="773" height="580" alt="image" src="https://github.com/user-attachments/assets/24d97cee-a5d0-4e8b-95f7-f2d1b073a2f7" />
+
+
+**Add Hardware --> Storage (for the virtio-win CD):**
+
+- Click Add Hardware --> Storage.
+- Select or create custom storage --> Browse --> pick ~/Lab/ISOs/virtio-win.iso.
+- Device type: CDROM device. Bus: SATA.
+- Click Finish. We now have two CD-ROMs attached to the VM: the Windows installer + the virtio drivers.
+
+
+
+
+
+
 
