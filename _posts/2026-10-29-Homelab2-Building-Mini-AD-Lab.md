@@ -503,6 +503,11 @@ Expand Topology --> check Manually set CPU topology --> 1 socket, 2 cores, 1 thr
 
 <img width="773" height="580" alt="image" src="https://github.com/user-attachments/assets/24d97cee-a5d0-4e8b-95f7-f2d1b073a2f7" />
 
+**SATA CDROM:**
+
+- Need to change the Disk Bus from IDE to SATA otherwise we will get an error .
+
+<img width="1279" height="624" alt="image" src="https://github.com/user-attachments/assets/afbce25c-161f-420e-8d11-eb379c56a734" />
 
 **Add Hardware --> Storage (for the virtio-win CD):**
 
@@ -510,6 +515,235 @@ Expand Topology --> check Manually set CPU topology --> 1 socket, 2 cores, 1 thr
 - Select or create custom storage --> Browse --> pick ~/Lab/ISOs/virtio-win.iso.
 - Device type: CDROM device. Bus: SATA.
 - Click Finish. We now have two CD-ROMs attached to the VM: the Windows installer + the virtio drivers.
+
+<img width="1330" height="849" alt="image" src="https://github.com/user-attachments/assets/15b269b5-d64a-4ca7-96a7-e0390494cb8f" />
+
+Finally we just Click **Begin installation**
+
+<img width="1173" height="551" alt="image" src="https://github.com/user-attachments/assets/b19fe823-e228-4c56-9242-344be7c366c4" />
+
+Firs we're dropped into this shell cause it couldn't find anything bootable to auto boot from . 
+
+Just hit exit and we should access the UEFI setup menu , from there : 
+
+- 1/ Go to Boot Manager (or Boot Maintenance Manager --> Boot Options)
+
+<img width="1089" height="759" alt="image" src="https://github.com/user-attachments/assets/afc5f422-09ff-40aa-b17e-be412c95b2c3" />
+
+- 2/You should see entries for your CD-ROMs (likely labeled something like UEFI QEMU DVD-ROM or similar)
+
+<img width="1078" height="718" alt="image" src="https://github.com/user-attachments/assets/c38a2e13-7914-4906-914f-5ce953edbecc" />
+
+I pressed 0001 but didn't boot up so i changed it to 0003 either way one of them is the windows installer , the other one is the virtio disk
+
+You might not even get this error , if not just move on to the next section . 
+
+**Installation Guide :**
+
+<img width="965" height="577" alt="image" src="https://github.com/user-attachments/assets/36d9e886-dde0-49db-8e6e-25d0c93572cc" />
+
+From here the installation is pretty straight forward , just press Install Now : 
+
+<img width="1147" height="741" alt="image" src="https://github.com/user-attachments/assets/2507410d-ca7c-4205-a3ec-6cc34038c8bd" />
+
+Select the Standard Evaluation with Desktop experience , accept few things : 
+
+<img width="1018" height="548" alt="image" src="https://github.com/user-attachments/assets/30bda89c-993b-4c6b-8bce-61f4d613ee30" />
+
+I didn't choose the custom installation . 
+
+<img width="913" height="531" alt="image" src="https://github.com/user-attachments/assets/fb79db2d-8c26-4960-9770-470fdf0a08ce" />
+
+Now this is the part where we can't find the disk , this is where we specify the virtio driver we installed earlier . 
+
+<img width="813" height="544" alt="image" src="https://github.com/user-attachments/assets/7251ea12-b426-4ebc-9833-0b8e4db9a736" />
+
+You will see a bunch of virtio drivers , each compiled for a specific version , i did check the 2K22 one , although some say that any of these versions will work . 
+
+<img width="880" height="546" alt="image" src="https://github.com/user-attachments/assets/74e99f05-e069-4c81-825b-6945c39a93b6" />
+
+Now finally we get this disk space that we can use , hit next and wait for the Installation . 
+
+Once done , it will Reboot and ask you for a password : 
+
+<img width="1066" height="629" alt="image" src="https://github.com/user-attachments/assets/c7b24f34-14d7-4b4a-8370-4e20825c0ef7" />
+
+Now once we get the Login screen, we'll stop .
+
+<img width="1246" height="764" alt="image" src="https://github.com/user-attachments/assets/440fbe26-385d-4fdf-9b9f-9f223fcca3f8" />
+
+
+#### CA01 : 
+
+For the CA01 machine , we'll use the Windows Server 2019 ISO that we downloaded , same steps as the DC01 , just different ISO , so you should be good :) 
+
+These are the specs :
+- Hostname: CA01
+- OS: Windows Server 2022 Standard (Desktop Experience)
+- RAM: 4 GB
+- vCPU: 2
+- Disk: 60 GB (qcow2, thin-provisioned so it only uses what's written)
+- Firmware: UEFI (via OVMF)
+- Network: lab-net, static IP 10.10.10.10
+
+**Add Hardware --> Storage (for the virtio-win CD):**
+
+You should get a Warning during this section 
+
+<img width="1246" height="855" alt="image" src="https://github.com/user-attachments/assets/649d7118-6163-4050-a08d-4f04310bbb74" />
+
+This is completely normal. By default it assumes a disk should have one writer at a time (to prevent two VMs from corrupting the same disk image). But ISOs are read only so multiple VMs can safely mount the same ISO at the same time, nothing to corrupt.
+
+Once evertyhing is set, we should start the installation for our 2019 server .
+
+<img width="1192" height="697" alt="image" src="https://github.com/user-attachments/assets/d8e142a6-2614-444d-b7b6-5b10b9971587" />
+
+Same thing , we choose the Desktop experience , 
+
+<img width="1054" height="577" alt="image" src="https://github.com/user-attachments/assets/bac3e3de-3605-4a18-a4db-35d30ac126fc" />
+
+Here we choose Custom , from there we just add the Driver just like we did with the 2022 Server : 
+
+<img width="942" height="521" alt="image" src="https://github.com/user-attachments/assets/578288ed-caaa-45cb-8b3b-77d03b8f7e5b" />
+
+For this one i chose the 2019 version 
+
+<img width="921" height="531" alt="image" src="https://github.com/user-attachments/assets/e150f31c-a328-4da8-8867-85e007280912" />
+
+Once we select the Driver , we should be good to continue the installation :
+
+<img width="830" height="532" alt="image" src="https://github.com/user-attachments/assets/b1490bb7-74ef-4101-93cf-6efb9b6c9703" />
+
+Now we just wait again :
+
+<img width="820" height="525" alt="image" src="https://github.com/user-attachments/assets/fa973635-3421-459e-a4cb-4b7e55e2b657" />
+
+Finally, we just setup the password for the Administrator and it will login automatically : 
+
+<img width="1212" height="718" alt="image" src="https://github.com/user-attachments/assets/50bec800-4816-419c-93c9-0e575efd413c" />
+
+For now we will leave it here , and move on to the 2 Windows machines .
+
+
+**Workstation01 / Workstation02**
+
+This one is pretty straight forward as well . It's pretty similar to what we did for the Servers , only this time we will need Secure Boot, TPM2.0 , let's start : 
+
+Here are the specs : 
+
+Hostnames: WKS01 and WKS02
+- OS: Windows 11 Enterprise (90-day eval)
+- RAM: 4 GB (6 GB if you can spare it — Win 11 is heavier than Server)
+- vCPU: 2
+- Disk: 60 GB qcow2
+- Firmware: UEFI with Secure Boot (OVMF_CODE_4M.secboot.fd)
+- TPM: 2.0 (required by Win 11)
+- Network: lab-net, static IPs 10.10.10.30 and 10.10.10.40
+
+<img width="594" height="411" alt="image" src="https://github.com/user-attachments/assets/056d9df4-f884-4a68-91cb-63623b30a0c0" />
+
+ALl of these steps apply for both machines of course :
+
+<img width="539" height="500" alt="image" src="https://github.com/user-attachments/assets/74a990e0-99e5-4b43-a6de-2b6c6a67880e" />
+
+**Overview :**
+
+Here we MUST specify the secure boot, otherwise it just won't boot up later on . 
+
+<img width="1054" height="621" alt="image" src="https://github.com/user-attachments/assets/7754ffdb-789b-480c-b7a9-9f9ccd070360" />
+
+**TPM 2.0:**
+
+TPM 2.0 is required here, Add Hardware --> TPM --> TIS / Emulated / 2.0. Non-negotiable, Win 11 won't install without it.
+
+<img width="1274" height="876" alt="image" src="https://github.com/user-attachments/assets/92f83940-fbb6-4023-8478-7ea97af6c7a4" />
+
+**The Rest**
+
+Just like what we did for the 2019 and 2022 server :
+
+- Overview --> UEFI secboot firmware
+- SATA Disk --> VirtIO bus (optional for speed)
+- NIC --> virtio model
+- Add second CD-ROM --> virtio-win.iso on SATA bus (not IDE, Q35 trap again)
+- Add TPM 2.0
+- Begin Installation
+- Boot Manager --> pick the Win 11 ISO entry
+
+**Account creation:**
+
+The Account creation forces a Microsoft account  Win 11 Home/Pro will force you into signing in with a Microsoft account when trying to setup the machie.
+
+Win 11 Enterprise lets you create a local account without the fuss, which is why we picked Enterprise. 
+
+*If the installer still tries to force a Microsoft account on you :*
+
+Press Shift+F10 on the account screen --> opens a command prompt --> type OOBE\BYPASSNRO --> system reboots --> then on the network screen pick I don't have internet --> fall through to local account creation. (Microsoft keeps changing this trick's name, if BYPASSNRO is gone in a future build, search for the current bypass.)
+ 
+<img width="991" height="618" alt="image" src="https://github.com/user-attachments/assets/a0a7af5a-26b5-496a-afc0-678b05a01ff2" />
+
+Now for the Disk , again : 
+
+<img width="889" height="617" alt="image" src="https://github.com/user-attachments/assets/d92f309a-3a40-4c75-a844-d7b243b0de55" />
+
+We choose the virtio driver : 
+
+<img width="973" height="598" alt="image" src="https://github.com/user-attachments/assets/f45bc481-9b54-43e5-ae2b-101191f23360" />
+
+Just go to **E:\amd64\w11** 
+
+<img width="943" height="640" alt="image" src="https://github.com/user-attachments/assets/5b521ee3-f2ec-4314-9b21-ce14bfe13e93" />
+
+And finally we'll choose the SCSI controller (not the pass-through controller) :
+
+<img width="1142" height="639" alt="image" src="https://github.com/user-attachments/assets/263ddb2e-aef4-4dca-a7ca-83c6830d17fd" />
+
+Finally we'll start the installation : 
+
+<img width="910" height="508" alt="image" src="https://github.com/user-attachments/assets/897a965b-6907-4e3f-97be-1e44db69d348" />
+
+Now we just wait : 
+
+<img width="925" height="291" alt="image" src="https://github.com/user-attachments/assets/aa4907a1-acf6-4e73-99ff-13a0a9221e34" />
+
+Once it's done we'll just clone it and rename it something else, for the second machine , unless you want to redo all these steps of course :)
+
+Now once done , pick you language , Keyboard layout : 
+
+<img width="1096" height="686" alt="image" src="https://github.com/user-attachments/assets/434926e0-ba38-4e5d-804a-4aed29cf8a7d" />
+
+After that it will ask you for the name of the local account and his password :
+
+A<img width="1105" height="642" alt="image" src="https://github.com/user-attachments/assets/a468209b-413a-4f3e-92ad-b0c8cc3e6a85" />
+
+After that you just need to answer few questions , just say No to all of them :)
+
+<img width="1226" height="764" alt="image" src="https://github.com/user-attachments/assets/0e374243-f442-4b5d-a640-e43997f0decc" />
+
+Just like that our Windows machine is set .
+
+Now just turn it off , go to Virt-manager and clone it : 
+
+<img width="869" height="530" alt="image" src="https://github.com/user-attachments/assets/ce9efeef-99e9-4d17-9de4-45ab4deacd17" />
+
+We'll name it something else and make sure we clone every storage we got.
+
+<img width="747" height="541" alt="image" src="https://github.com/user-attachments/assets/e70608a3-cb40-4ede-bfd5-5a45758cf5ac" />
+
+Once done we should see all of our machines inside the Virt-manager : 
+
+<img width="872" height="452" alt="image" src="https://github.com/user-attachments/assets/b7f42775-1573-4a65-8c35-98df13ccdad8" />
+
+Now we can move to the next step which is setting up the Domain : 
+
+
+### Setting up the Domain : 
+
+For this lab we will create a Domain called **2SEC** , we will first setup the DC and the CA , join the CA machine , from there we will join both Windows machines onto the domain as well . 
+
+
+
+
 
 
 
