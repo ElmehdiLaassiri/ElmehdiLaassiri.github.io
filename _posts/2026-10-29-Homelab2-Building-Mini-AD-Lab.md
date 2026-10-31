@@ -732,13 +732,79 @@ For this lab we will create a Domain called **2SEC.Local** , we will first setup
 
 #### DC01 : 
 
-Now we need to setup our Domain Controller , for this we will promote our Windows server 2022 machine to be the DC : 
+First we need to setup our Domain Controller , for this we will promote our Windows server 2022 machine to be the DC : 
 
-First a quick explanation before we start , for our domain , we will need the Netbios name and the DNS name , we can't just name our Domain **2SEC** alone (we could but it's not recommended by Microsoft for Tools compatibility), AD runs on top of DNS, so the real domain name has to be a proper DNS name like 2sec.local. 2SEC is just the short NetBIOS form that gets auto-derived from it.
+Just a quick explanation before we start , for our domain , we will need the Netbios name and the DNS name , we can't just name our Domain **2SEC** alone (we could but it's not recommended by Microsoft for Tools compatibility), AD runs on top of DNS, so the real domain name has to be a proper DNS name like 2sec.local. 2SEC is just the short NetBIOS form that gets auto-derived from it.
 
 We'll dive deep into this later on, for now what you need to know is Netbios is just a way for machines to find each other , much like DNS , but using old and deprecated protocols like NBT-NS, they added LLMNR as a modern replacement , but both are still poisonable by Responder to capture NTLMV2 hashes (challenge response) , but we'll dive deep into this in the blogs covering the attacks . 
 
 With that out of the way, spin up your DC01 machine : 
+
+<img width="3070" height="1446" alt="image" src="https://github.com/user-attachments/assets/7c42e39f-770e-49d5-9732-2ff20b043c2e" />
+
+First test with **ipconfig** if the output stops at the **Configuration IP de Windows** header with no adapters listed below it, we need to install the VirtIO NIC driver.
+Steps to enable it :
+1. Device Manager --> right click the Ethernet Controller with the yellow bang --> Update driver
+2. Browse my computer for drivers
+3. Browse --> navigate to the virtio-win CD (likely drive E: or D:) --> NetKVM\2k22\amd64\
+4. OK → Next --> Windows installs the driver
+5. Device Manager now shows "Red Hat VirtIO Ethernet Adapter" with no bang
+6. Open Network Connections --> the NIC appears
+
+Once done you will be able to see the IP address that was assigned via DHCP : 
+
+<img width="2642" height="1068" alt="image" src="https://github.com/user-attachments/assets/27a14ed2-1496-4c02-9719-a983833f0d3a" />
+
+But since it's our DC , we will give it a static IP address why? 
+
+- A Domain Controller puts its IP in DNS records for the whole domain (ldap,kerberos SRV records point at it). If that IP changes, every machine in the domain tries to reach the old address and auth breaks. Static IPs on DCs are non-negotiable.
+
+We can do it from the command line, first let's get the Network adapter name
+
+```ps
+Get-NetAdapter
+```
+
+Once you get your NIC name (mine is Ethernet in this case) : 
+
+```bash
+New-NetIPAddress `
+  -InterfaceAlias "Ethernet" `
+  -IPAddress 10.10.10.10 `
+  -PrefixLength 24 `
+  -DefaultGateway 10.10.10.1
+```
+
+<img width="2716" height="1608" alt="image" src="https://github.com/user-attachments/assets/b7c78cfb-113f-4cef-a244-baed0cc50c9d" />
+
+For the default gateway it's better to put your Host machine IP address (on that bridge in my case it's the .1) 
+
+Next we'll set up the DNS server , in our case the DNS is the DC itself : 
+
+```bash
+Set-DnsClientServerAddress `
+  -InterfaceAlias "Ethernet" `
+  -ServerAddresses 127.0.0.1
+``` 
+
+<img width="2518" height="898" alt="image" src="https://github.com/user-attachments/assets/de188b38-65b8-478a-889f-183c798ee65b" />
+
+Now that we've got a static IP address, we can setup the Domain . 
+
+First we need to install the AD DS role. This is just the binaries, the server isn't a DC yet, it just has the capability to become one.
+
+```ps
+Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
+```
+
+**IncludeManagementTools** also installs the admin tools: 
+- Active Directory Users and Computers (ADUC), ADSI Edit, AD PowerShell module (Import-Module ActiveDirectory), etc.
+
+Without this flag you get the role but no way to manage it from this box , always include this flag.
+
+<img width="2258" height="576" alt="image" src="https://github.com/user-attachments/assets/e4daf6d9-45ad-4b66-b742-50bb1f9104fe" />
+
+Now that the role is set, we can promote our server to be the DC . 
 
 
 
