@@ -1,6 +1,6 @@
 ---
 title: " Home Lab 1 : Minimal Active Directory Setup on Debian "
-date: 2026-07-10 00:00:00 +0000
+date: 2026-11-29 00:00:00 +0000
 categories: [Home Lab ]
 tags: [Active Directory, Homelab]
 ---
@@ -739,7 +739,18 @@ Now we can move to the next step which is setting up the Domain :
 
 ### Setting up the Domain : 
 
-For this lab we will create a Domain called **2SEC** , we will first setup the DC and the CA , join the CA machine , from there we will join both Windows machines onto the domain as well . 
+For this lab we will create a Domain called **2SEC.Local** , we will first setup the DC and the CA , join the CA machine , from there we will join both Windows machines onto the domain as well . 
+
+
+#### DC01 : 
+
+Now we need to setup our Domain Controller , for this we will promote our Windows server 2022 machine to be the DC : 
+
+First a quick explanation before we start , for our domain , we will need the Netbios name and the DNS name , we can't just name our Domain **2SEC** alone (we could but it's not recommended by Microsoft for Tools compatibility), AD runs on top of DNS, so the real domain name has to be a proper DNS name like 2sec.local. 2SEC is just the short NetBIOS form that gets auto-derived from it.
+
+We'll dive deep into this later on, for now what you need to know is Netbios is just a way for machines to find each other , much like DNS , but using old and deprecated protocols like NBT-NS, they added LLMNR as a modern replacement , but both are still poisonable by Responder to capture NTLMV2 hashes (challenge response) , but we'll dive deep into this in the blogs covering the attacks . 
+
+With that out of the way, spin up your DC01 machine : 
 
 
 
