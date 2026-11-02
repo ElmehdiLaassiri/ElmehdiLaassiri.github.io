@@ -761,13 +761,13 @@ But since it's our DC , we will give it a static IP address why?
 
 We can do it from the command line, first let's get the Network adapter name
 
-```ps
+```powershell
 Get-NetAdapter
 ```
 
 Once you get your NIC name (mine is Ethernet in this case) : 
 
-```bash
+```powershell
 New-NetIPAddress `
   -InterfaceAlias "Ethernet" `
   -IPAddress 10.10.10.10 `
@@ -781,7 +781,7 @@ For the default gateway it's better to put your Host machine IP address (on that
 
 Next we'll set up the DNS server , in our case the DNS is the DC itself : 
 
-```bash
+```powershell
 Set-DnsClientServerAddress `
   -InterfaceAlias "Ethernet" `
   -ServerAddresses 127.0.0.1
@@ -793,7 +793,7 @@ Now that we've got a static IP address, we can setup the Domain .
 
 First we need to install the AD DS role. This is just the binaries, the server isn't a DC yet, it just has the capability to become one.
 
-```ps
+```powershell
 Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
 ```
 
@@ -806,13 +806,290 @@ Without this flag you get the role but no way to manage it from this box , alway
 
 Now that the role is set, we can promote our server to be the DC . 
 
+(You can also check if the role is set if you go to the server manager , you will see a yellow flag telling you that you need to configure your AD DS) :
+
+<img width="1138" height="464" alt="image" src="https://github.com/user-attachments/assets/c99ee663-f0db-4a64-8680-d6a64e597de9" />
+
+Now to configure our Domain , either you can do it manually , which i already showed in recent Homelabs , or just do it from PS , it's easier, just open a PS session as Administrator :
+
+```powershell
+Install-ADDSForest `
+  -DomainName "2sec.local" `
+  -DomainNetbiosName "2SEC" `
+  -DomainMode "WinThreshold" `
+  -ForestMode "WinThreshold" `
+  -InstallDns:$true `
+  -NoRebootOnCompletion:$false `
+  -Force:$true
+```
+
+The command is pretty self explanatory. The only parameter worth explaining is WinThreshold, this is the Windows Server 2016 functional level (internal codename). It controls what AD features are available forest/domain wide and locks in a minimum OS version for all DCs. Microsoft stopped adding new levels after 2016, so this is the highest available even on Server 2022.
+
+<img width="1006" height="208" alt="image" src="https://github.com/user-attachments/assets/cfb0dc13-8e30-4966-bce1-c94325b3ea29" />
+
+Once you run it, it will ask you for a password, This is the **DSRM** password, this is the Directory Services Restore Mode password, used for recovery when AD itself is broken. For a lab, use the same as your Administrator password.
+
+Once you supply the password, you'll see a warning: "A delegation for this DNS server cannot be created because the authoritative parent zone cannot be found." Ignore it, the parent of 2sec.local is .local, which isn't a real TLD anyone manages (unlike .com or .net etc...). The warning is normal , since this is not a real production , just a Homelab , we don't have to buy a Real Domain .   
+
+<img width="1017" height="542" alt="image" src="https://github.com/user-attachments/assets/706ac61e-407d-49cc-a40c-c18adc97df09" />
+
+Once done it will restart , and this time you should see the Domain name as well , not the old local administrator account . 
+
+<img width="1231" height="687" alt="image" src="https://github.com/user-attachments/assets/dae9a0ed-6e48-467f-9092-e7bb29e97f14" />
+
+We just login with the original Administrator password we set during Windows install this account is now 2SEC\Administrator, and it's also our Domain Admin going forward. The DSRM password only matters if we ever need to boot into Directory Services Restore Mode for recovery.
 
 
+#### Populating the empty domain :
+
+First let's add few groups and domain users , since we will need them later on .
+
+Before we start, a quick note on what's already in the domain by default. For users you'll find **Administrator** (your current Domain Admin), **krbtgt** (the Kerberos service account, its password hash signs every TGT, which is why Golden Ticket attacks target it), and a couple of disabled accounts **(Guest, DefaultAccount)**.
+
+For groups there are plenty, split roughly between the Builtin container (Administrators, Backup Operators, Account Operators, Remote Desktop Users...) and the Users container (Domain Admins, Enterprise Admins, Schema Admins, Domain Users, Protected Users, DnsAdmins...). We'll leave these alone and add our own structure on top.
+
+##### Quick Explanation Builtin Container/ Users Container :
+
+Both are default containers in our domain (think of a container like a group of groups basically) But the containers are not OUs , which means you can't have  GPO that applies on them . 
+
+When you promote DC01 , AD created a bunch of pre-made containers : 
+
+- CN=Users,DC=2sec,DC=local --> the Users container
+- CN=Builtin,DC=2sec,DC=local --> the Builtin container
+- CN=Computers,DC=2sec,DC=local --> the Computers container
+- (plus others)
+
+The difference ? 
+
+- Builtin Containers : These holds the old school groups you could say , with Domain Local scope . They existed even before AD was a thing , and got carried over for backward compatibility , some examples :
+  - Administrators / Backup Operators / Account Operators / Server Operators / Remote Desktop Users / Users,Guests 
+  - They can only grant permissions on resources inside the actual Domain only , so if there were more than 1 domain in the forest , they can't give permissions on those domains as well .
+
+- Users Containers : They hold the default user accounts (Administrator, krbtgt, Guest) and a bunch of groups that were added when AD came along .
+  - Domain Admins / Enterprise Admins / Schema Admins / Domain Users / Domain Computers / Protected Users / Group Policy Creator Owners / DnsAdmins .
+  - They can be referenced across the entire Forest , meaning ALL DOMAINS Inside the forest . 
+
+So a quick TLDR , the Built in groups are there at the root part , inside of them we can add other User containers groups , let's pick an example : 
+
+**How do they work together ?**
+
+First, we have the **Builtin groups** that exist in every domain. They carry the actual permissions on that domain **Administrators** can admin the DC, **Backup Operators** can back up files, etc. These are **Domain Local** scope, so they only grant rights within their own domain.
+
+For cross-domain / forest-wide permissions, there's a second kind: the **Users container groups**. On their own they do nothing they're just a name with no permissions attached. But they're **referenceable across the entire forest**, meaning we can nest them inside any Builtin group in any domain, and the members of the nested group inherit that Builtin group's permissions. (nesting is basically putting them inside an existing builtin group )
+
+Three Users container groups are special: `Enterprise Admin`, `Schema Admins`, and `Enterprise Key Admins` they exist **only in the forest root** and get **auto-nested into every domain's Builtin Administrators group** when a new domain joins the forest. That's what makes **Enterprise Admins** effectively "admin everywhere" Windows does the nesting for you, in every domain, automatically.
+
+##### Concrete example :
+
+Say we have `2SEC.local` as our forest root, with a child domain `TelecomMa.2SEC.local` under it. By default each has its own Builtin container with the usual groups:
+
+<img width="857" height="478" alt="image" src="https://github.com/user-attachments/assets/29e2a058-54eb-4bb6-8f62-4c128f919487" />
+
+Now say we want Elmehdi (who lives in `2SEC.local`) to also be admin on `TelecomMa.2SEC.local`. We can just nest him directly into the other domain's Administrators nothing prevents cross-domain references:
+
+<img width="874" height="478" alt="image" src="https://github.com/user-attachments/assets/2a6621e0-bbb1-467f-97d9-148e825e2586" />
+
+Fine for one user. But what if we have 100? Adding each one to every domain's Administrators manually becomes impossible to maintain. This is where **Enterprise Admins** earns its keep. We add Elmehdi (and the 99 others) to `2SEC.local\Enterprise Admins` ONCE, and Windows automatically nests the EA group into every domain's `Administrators`:
+
+<img width="887" height="573" alt="image" src="https://github.com/user-attachments/assets/f694ac15-e95b-40d5-83db-48588e78fa0b" />
+
+That's the whole point of Users container groups: a layer of indirection that scales across domains.
+
+With that out of the way, we can continue . 
 
 
+##### Containers VS OUs : 
+
+As we mentioned earlier, the containers are not OUs so we can't link the GPO to it , but what does that even mean ? Well OUs and Containers have the same purpose which is storing AD objects , with some limitations on the Containers side : 
+
+<img width="849" height="466" alt="image" src="https://github.com/user-attachments/assets/fef7264c-500c-4c84-8dfd-a34692be387f" />
+
+So basically : Containers are **legacy pre-AD folders** that still exist for backward compatibility. OUs are the **modern way AD** wants you to organize your stuff because OUs let you apply policies and delegate admin.
+
+- `CN=Builtin,DC=2sec,DC=local` --> container --> holds Builtin groups (Administrators, Backup Operators). Can't link GPOs here.
+- `CN=Users,DC=2sec,DC=local` --> container --> holds default users (Administrator, krbtgt) and some default groups (Domain Admins, EA). Can't link GPOs here.
+- `CN=Computers,DC=2sec,DC=local` --> container --> where new domain-joined machines land by default if you don't specify an OU. Can't link GPOs here.
+- `OU=2SEC,DC=2sec,DC=local` --> OU --> can link GPOs here. Can delegate admin here.
 
 
+##### Creating the OU : 
+
+The OU we'll be creating is called **STI** , inside of it we will have multiple other OUs , one for the Users , Groups , Computers etc ...
+
+- OU=Users --> human user accounts (Elmehdi,...)
+- OU=ServiceAccounts -->  non-human accounts (SQL service, backup service, etc.)
+- OU=Groups -->  our custom security groups (IT_Admins, Marketing...)
+- OU=Workstations -->  Win 11 client computer accounts
+- OU=Servers -->  server computer accounts (CA01, etc.)
+
+Now to create these OUs , either we can do it from the GUI or via PS , now from the PS : 
+
+```powershell
+# Top-level OU
+New-ADOrganizationalUnit -Name "STI" -Path "DC=2sec,DC=local"
+
+# Nested OUs under STI
+New-ADOrganizationalUnit -Name "Users"           -Path "OU=STI,DC=2sec,DC=local"
+New-ADOrganizationalUnit -Name "ServiceAccounts" -Path "OU=STI,DC=2sec,DC=local"
+New-ADOrganizationalUnit -Name "Groups"          -Path "OU=STI,DC=2sec,DC=local"
+New-ADOrganizationalUnit -Name "Workstations"    -Path "OU=STI,DC=2sec,DC=local"
+New-ADOrganizationalUnit -Name "Servers"         -Path "OU=STI,DC=2sec,DC=local"
+```
+
+From GUI : 
+
+--> Server Manager --> Tools --> Active Directory Users and Computers.
+
+<img width="1252" height="719" alt="image" src="https://github.com/user-attachments/assets/207a7f62-8fbf-4878-be9b-03022dc77ba4" />
+
+Left pane --> expand 2sec.local. You'll see the default containers (Builtin, Computers, Users, etc.) and the one default OU (Domain Controllers).
+
+<img width="1264" height="743" alt="image" src="https://github.com/user-attachments/assets/e5c40a20-cf60-4d6c-9ae8-23acb91f6c99" />
+
+**Create the top-level STI OU** 
+
+Right-click 2sec.local --> New --> Organizational Unit
+- Name: STI
+- Keep "Protect container from accidental deletion" ticked (default) : prevents you from accidentally nuking the whole OU with a stray delete. Doesn't hurt, saves pain.
+- Click OK
+
+<img width="1225" height="796" alt="image" src="https://github.com/user-attachments/assets/f40f2879-754e-4614-9175-8f63e9beeb4f" />
+
+**Create the nested OUs**
+
+For each sub-OU:
+- Right-click STI --> New --> Organizational Unit
+- Name: Users --> OK
+- Repeat for ServiceAccounts, Groups, Workstations, Servers
+
+```bash
+2sec.local
+├── Builtin
+├── Computers
+├── Domain Controllers
+├── ForeignSecurityPrincipals
+├── Managed Service Accounts
+├── STI                
+│   ├── Groups
+│   ├── ServiceAccounts
+│   ├── Servers
+│   ├── Users
+│   └── Workstations
+└── Users
+```
+
+<img width="1260" height="566" alt="image" src="https://github.com/user-attachments/assets/cd41bba7-dee1-43b0-be7f-01c7f0f7af79" />
+
+Perfect ! 
+
+Now we can move to creating our users and groups .
+
+##### Users and Groups : 
+
+We will be adding a bunch of users later on in our attack section , but for now let's create a few : 
+
+- Users : Elmehdi , Emile , Reda , Bakkou , John , Alice .
+- Groups : IT_Admins / Marketing 
+
+If you want to do it via the GUI : 
+
+For each user:
+1. Right-click OU=Users (under STI) --> New --> User
+2. Fill in: First name, Last name, Full name, User logon name (SamAccountName), User logon name pre-Win2000
+3. Click Next
+4. Set password (uncheck "User must change password at next logon" for lab convenience)
+5. Click Next --> Finish
+
+<img width="1294" height="827" alt="image" src="https://github.com/user-attachments/assets/9faf4eb4-448f-4a79-a277-dc156b27b606" />
+
+- The UPN (elmehdi@2sec.local) is used for modern apps , web auth , Outlook and Kerberos Tickets. 
+
+- The SAM name is used for the legacy protocols , Powershell -Credential prompts , and Windows Login Screen so both are needed .
+
+- Make sure to check Protection again delete , and the Password never expires .
+
+**Why both?**
+
+Legacy once again. Pre-AD (NT 4), logins were always DOMAIN\user format. When AD came out with Kerberos (2000), Microsoft added the modern user@domain.tld format but kept the old one for backward compatibility. Every account still gets both to this day.
+
+If you want to do it from Powershell : 
+
+```powershell
+New-ADUser -Name "Elmehdi Laassiri" `
+  -SamAccountName "elmehdi" `
+  -UserPrincipalName "elmehdi@2sec.local" `
+  -Path "OU=Users,OU=STI,DC=2sec,DC=local" `
+  -AccountPassword (ConvertTo-SecureString "SuperSecret!123" -AsPlainText -Force) `
+  -Enabled $true `
+  -PasswordNeverExpires $true `
+  -ChangePasswordAtLogon $false
+``` 
+
+Once done, we will see this new OU showing up since it has some users inside : 
+
+<img width="1301" height="557" alt="image" src="https://github.com/user-attachments/assets/169d75c4-c7bf-4d2e-892c-7b8f4303dc9f" />
+
+Now to create the groups , again either via PS or GUI , via PS : 
+
+```powershell
+New-ADGroup -Name "IT_Admins" `
+  -SamAccountName "IT_Admins" `
+  -GroupCategory Security `
+  -GroupScope Global `
+  -Path "OU=Groups,OU=STI,DC=2sec,DC=local" `
+  -Description "IT team local admin on workstations"
+```
+
+Or via GUI : 
+
+Navigate to 2sec.local --> STI --> Groups (left pane)
+Right-click Groups OU --> New --> Group (or Nouveau --> Groupe)
+Fill in:
+     - Nom du groupe --> IT_Admins
+     - Nom pre-Windows 2000--> auto-fills with IT_Admins
+     - Étendue du groupe (Group scope)--> Global
+     - Type de groupe (Group type) --> Sécurité
+
+<img width="1237" height="719" alt="image" src="https://github.com/user-attachments/assets/f1ed5aad-3611-4686-b1cc-0641ccc0f90c" />
+
+We picked Security for the Group Type since we need this group to be usable in ACLs on files and OUs for standard access control, but also on users and groups themselves, which is a key piece for the misconfig scenarios we'll set up later (think WriteDacl, ForceChangePassword, GenericWrite all the ACL abuse paths pentesters hunt with BloodHound). Distribution groups can't do any of this, so Security it is.
+
+We picked Global scope members come from this domain only, but the group can still be referenced in any other domain of the forest for permissions. Universal would also work, but it causes more replication traffic since Universal memberships live in the Global Catalog. For a role-based team group where members all come from one domain, Global is the standard choice.
+
+<img width="1253" height="590" alt="image" src="https://github.com/user-attachments/assets/10b1ae92-d48c-4f22-b1bc-182fef99fff4" />
+
+Now our groups are set , we can start by adding users to them :
+
+I'll put Elmehdi inside the IT_Admins and Domain Admins and the rest inside a group called TP_01_Lab :
+
+From PS : 
+
+```powershell
+Add-ADGroupMember -Identity "IT_Admins"     -Members "elmehdi"
+Add-ADGroupMember -Identity "Domain Admins" -Members "elmehdi"
+Add-ADGroupMember -Identity "Marketing"     -Members "alice"
+Add-ADGroupMember -Identity "TP_01_Lab"     -Members "Reda"
+
+```
+
+From the GUI, it's also simple , just pick the Group, double click it , Members , then add memebers, you specify the name and hit verify name , and it will complete it for you .
+
+<img width="1295" height="771" alt="image" src="https://github.com/user-attachments/assets/dde842cd-d12d-4fa9-af24-0d9948db47ad" />
+
+Now to verify either check the members tab or just list the members of that group via PS : 
+
+```bash
+Get-ADGroupMember -Identity "IT_Admins"
+Get-ADGroupMember -Identity "Marketing"
+Get-ADGroupMember -Identity "Domain Admins"
+```
+
+<img width="1248" height="627" alt="image" src="https://github.com/user-attachments/assets/4a1b1692-f00b-4578-a555-321d75ee30da" />
+
+Now that our groups are set, we can move to setting up the other machines, then joining them to the Domain .
 
 
+#### CA01 :
 
+Starting with our CA server , the ADCS .
 
