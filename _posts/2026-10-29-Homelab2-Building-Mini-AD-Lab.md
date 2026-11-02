@@ -1,6 +1,6 @@
 ---
 title: " Home Lab 1 : Minimal Active Directory Setup on Debian "
-date: 2026-11-29 00:00:00 +0000
+date: 2026-10-29 00:00:00 +0000
 categories: [Home Lab ]
 tags: [Active Directory, Homelab]
 ---
