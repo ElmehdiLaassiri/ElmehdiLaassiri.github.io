@@ -1093,3 +1093,159 @@ Now that our groups are set, we can move to setting up the other machines, then 
 
 Starting with our CA server , the ADCS .
 
+But before we start setting up anything , we first need to define what a CA is , the Certificate Authority isn't something related to AD only , it was first created to validate the authenticity of 2 users communicating with each other and making sure no one is impersonating any of them . 
+
+##### Quick Explanation what is a CA :
+
+<img width="897" height="562" alt="image" src="https://github.com/user-attachments/assets/02e709a3-fc69-495e-970d-fa61a2350927" />
+
+The classic Bob and Alice example :  ) , say they were talking to each other , how can we make sure the message coming from Alice was actually Alice and not someone impersonating her ? Well to answer this question , we had Cryptography , where Bob and Alice will share their Public Keys , and Alice will encrypt the messages that she sends Bob using Bob's public key , and only Bob can decrypt them using his private key, and vise versa .
+
+**Spot the issue here ?**
+
+How can Bob verify that Alice is the owner of that public key :) , i can come in send bob my own public key , and pretend to be Alice and then he'll use that to encrypt all messages then i can decrypt and read them . 
+
+**Certificate Authority**
+
+This is why we need a CA , it verifies that the public key Alice sends is her own public key . How? it signs a certificate with its own Private key (the CA private Key) saying that the public Key belongs to ALice, now all what's left is for Bob to trust that CA . 
+
+There are some known CAs , there aren't unlimited CAs , but those are responsible for signing most of the certificates worldwide . 
+
+##### Concrete Examples : 
+
+**HTTPS**
+
+Every time you visit a Web site , the website sends its own certificate to the Browser , the browser has a list of known certificates that it trusts, each one of them is signed by a specific CA , for example Google.com is signed by Google Trust Services , and this certificate is already trusted by the browser , and from there the browser can establish an encrypted session.
+
+==> In standard HTTPS, the Browser doesn't have to specify its own certificate , it's one way TLS. Sometimes in some Enterprise or API scenarios ,both parts are forced to supply the certificate , this is called MTLS (mutual TLS) where you need to have a certificate that the website also trusts in order to establish that connection.  
+
+Say you visit a Website that has a ceritificate that isn't trusted by your browser ? it will say that the connection is not trusted and you'll need to add that website's Ceritificate to the trusted Certs on your browser for the connection to be fully established .  
+
+**Let's Encrypt**
+- Free, automated CA that signs certificates for websites
+- Verifies you own the domain by challenging you (HTTP-01, DNS-01)
+- Then signs a certificate for your domain
+- Browsers trust Let's Encrypt --> your site gets the padlock
+
+**Code signing**
+- Microsoft signs Windows executables with their CA
+- Your PC verifies the signature on .exe files --> if valid, the Windows "verified publisher" shield appears
+- If someone tries to replace notepad.exe with malware, their binary won't have Microsoft's signature --> Windows lets you know haha
+
+**Smart card login**
+- Your smart card holds a certificate signed by your company's CA
+- Insert card --> Windows reads the cert --> verifies against the CA --> logs you in
+- No password typed, pure crypto authentication
+
+So basically this CA is just an Authority that we agreed on trusting for authentication.
+
+
+##### CA in Active Directory = ADCS :
+
+###### Why do we need a CA?
+
+Let's take this scenario: IT at STI Corp wants to roll out company VPN access. Two options:
+
+- Password-based: every employee gets VPN credentials. 150 people. When someone leaves, someone has to remember to disable her VPN account. When someone gets hacked, his password gets rotated everywhere. Password sharing happens.
+
+- Cert-based: every employee's laptop gets a certificate that says "this device belongs to a legit STI employee." The VPN only accepts machines holding a valid cert. When someone leaves, IT revokes their cert --> the VPN immediately rejects her laptop. When Bob's laptop gets stolen, revoke that one cert --> done.
+
+The second option needs something to issue, trust, and revoke those certificates. That's the CA.
+
+The same pattern repeats everywhere in a real enterprise: Wi-Fi auth, smart card login, internal HTTPS sites, encrypted LDAP, machine identity for IPsec, EFS file encryption. All of them boil down to "I need to prove this user/machine is who they say they are, without passwords, in a way the company can centrally manage." CA solves all of them with one piece of infrastructure.
+
+###### What the CA actually does
+
+Let's follow the classic Alice example : Alice needs a cert for the company Wi-Fi.
+
+<img width="877" height="675" alt="image" src="https://github.com/user-attachments/assets/7805612c-0022-4ce6-aa7a-1e5c052fa73e" />
+
+Well Aice Boots her laptop , logs in : 
+
+Behind the scenes:
+- 1. Her laptop (WKS01) authenticates to CA01 using its own Kerberos ticket (because WKS01 is a domain-joined computer)
+- 2. WKS01 asks: "I'd like to enroll in the WiFiUser template"
+- 3. CA01 checks: "does 2SEC\WKS01$ (computer account) have Enroll permission on the WiFiUser template?"
+- 4. ACL says yes --> CA01 generates a certificate with Alice's identity (CN=Alice Martin, OU=STI, DC=2sec, DC=local), signs it with its own private key, hands it back
+- 5. The cert gets installed in Windows' certificate store automatically --> Alice sees nothing, no popup, no password prompt
+- 6. When Alice clicks the Wi-Fi SSID, Windows presents the cert --> Wi-Fi auth --> connected
+
+That whole flow is auto-enrollment, driven by a GPO that says "the WiFiUser template auto-enrolls for Domain Users." Alice does nothing. The CA, the template, and the GPO handle it.
+
+Zoom out: three things the CA is doing in this story:
+
+- 1. Hosting templates. The WiFiUser template is a definition sitting on CA01 saying "when someone enrolls, give them a cert valid for 1 year, usable for Client Authentication, with their AD identity in the subject."
+
+- 2. Processing enrollment requests. When WKS01 asks for a cert, the CA checks the template's ACL and policy, then signs if allowed.
+
+- 3. Maintaining revocation data. When Alice leaves STI 6 months later, IT runs Revoke-Certificate --> Alice's cert ID goes on the CRL --> the Wi-Fi access point checks the CRL --> Alice's laptop can't connect anymore.
+
+
+###### A template is a blueprint
+
+Here's what the WiFiUser template actually contains, as if you were defining it:
+
+```text
+Template Name:       WiFiUser
+Validity Period:     1 year
+Allowed EKUs:        Client Authentication (1.3.6.1.5.5.7.3.2)
+Subject Build From:  Fully distinguished name from AD
+
+                (so if Alice enrolls, her subject is forced to her AD identity)
+Enroll Permission:   Domain Computers
+Autoenroll Permission: Domain Computers
+Approval Required:   No
+```
+
+Templates don't do anything by themselves : they're just configuration. The CA uses them as rules when it processes requests.
+
+The **Subject Build From** field is the one that becomes **ESC1** when misconfigured. Setting it to **Supplied in request** (instead of "From AD") lets the enrollee lie about who they are. Alice could then enroll and say **my subject is CN=Administrator.** The CA says OK, signs it. Alice now holds a cert claiming to be Administrator. That cert will authenticate her AS Administrator anywhere PKINIT is accepted. Boom.
+
+More on that in the attack Blogs.
+
+###### Three things we can now do with CA01 in the mix
+
+**1. Internal HTTPS without browser warnings.**
+
+Say we want to host an internal HR portal at https://hr.2sec.local. Without a CA, we'd either (a) use a public CA like Let's Encrypt, but it won't issue certs for .local domains, or (b) use a self-signed cert, every browser screams about untrusted connection. With CA01, we issue the HR portal a WebServer cert signed by 2SEC-Root-CA. Every domain-joined machine already trusts that CA (because its root cert was auto-pushed to AD). Padlock appears, no warnings, done.
+
+**2. LDAPS instead of LDAP**
+
+By default, LDAP traffic to DCs is cleartext. If Alice changes her password via Active Directory Users and Computers, that password crosses the network in plain. With a CA, DC01 can enroll in a DomainController cert, bind it to port 636 --> LDAPS. Now all password changes, group queries, and auth flows are encrypted end-to-end. Attackers on the wire see nothing.
+
+**3. Passwordless login via smart card**
+
+IT issues Alice a smart card loaded with a cert from the SmartcardLogon template. Alice inserts her card into her laptop --> Windows reads the cert ---> sends it to the DC via Kerberos PKINIT --> logged in. No password typed, no password stored in LSASS for mimikatz to grab. If someone steals the card, they still need the PIN. If someone phishes Alice, there's nothing to phish she has no password.
+
+You could add RDP cert validation, IPsec peer auth, code signing, EFS file encryption, 802.1X Ethernet, all the same pattern: identity via cert instead of password.
+
+###### Attack Angle 
+
+In 2021, SpecterOps published **Certified Pre-Owned** a paper that cataloged over a dozen ways misconfigured Enterprise CAs become instant Domain Admin paths. The attacks are numbered ESC1 through ESC16 and climbing.
+
+The classic one is the ESC1 and here is a quick demo : 
+
+1. Alice is a low-priv user. She has zero admin rights.
+2. An IT admin at some point created a custom cert template with "Subject in Request" enabled (the misconfig). Default enrollment permission: Authenticated Users (another misconfig).
+3. Alice runs certipy find --> sees the vulnerable template --> runs certipy req specifying CN=Administrator in the subject.
+4. CA01 signs the cert. Alice now holds a cert claiming to be Administrator.
+5. Alice runs certipy auth --> the DC accepts the cert via PKINIT --> Alice gets a Kerberos TGT AS Administrator.
+6. Alice uses the TGT to DCSync --> dumps NTDS.dit --> every password hash in the domain is hers.
+
+<img width="868" height="724" alt="image" src="https://github.com/user-attachments/assets/c63aca80-838d-45a8-b941-7492fe901459" />
+
+GG. One misconfigured checkbox on one template. Zero vulnerabilities exploited, zero credentials cracked. Just a legitimate feature used as intended against a bad config.
+
+###### Why CA01 is separate from DC01 ? 
+
+Technically you can install AD CS on the DC itself. In practice, real orgs almost never do and we're mirroring that in the lab for three reasons:
+
+- Separate attack surface : if the CA role has a critical bug, compromising it shouldn't automatically compromise the DC.
+- ESC8 needs a separate CA : the NTLM-relay-to-web-enrollment attack targets the CA machine specifically. Can't demo it if the CA is on the DC.
+- Mirrors real deployments : in any mature enterprise AD, the CA is on dedicated hardware.
+
+CA01 (Server 2019) sits in OU=Servers for exactly this purpose.
+
+Now that we explained a bit what an ADCS is and what it does , we can move to configuring our CA01 . 
+
+##### Configuring CA01 : 
