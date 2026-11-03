@@ -1163,12 +1163,12 @@ Let's follow the classic Alice example : Alice needs a cert for the company Wi-F
 Well Aice Boots her laptop , logs in : 
 
 Behind the scenes:
-- 1. Her laptop (WKS01) authenticates to CA01 using its own Kerberos ticket (because WKS01 is a domain-joined computer)
-- 2. WKS01 asks: "I'd like to enroll in the WiFiUser template"
-- 3. CA01 checks: "does 2SEC\WKS01$ (computer account) have Enroll permission on the WiFiUser template?"
-- 4. ACL says yes --> CA01 generates a certificate with Alice's identity (CN=Alice Martin, OU=STI, DC=2sec, DC=local), signs it with its own private key, hands it back
-- 5. The cert gets installed in Windows' certificate store automatically --> Alice sees nothing, no popup, no password prompt
-- 6. When Alice clicks the Wi-Fi SSID, Windows presents the cert --> Wi-Fi auth --> connected
+1. Her laptop (WKS01) authenticates to CA01 using its own Kerberos ticket (because WKS01 is a domain-joined computer)
+2. WKS01 asks: "I'd like to enroll in the WiFiUser template"
+3. CA01 checks: "does 2SEC\WKS01$ (computer account) have Enroll permission on the WiFiUser template?"
+4. ACL says yes --> CA01 generates a certificate with Alice's identity (CN=Alice Martin, OU=STI, DC=2sec, DC=local), signs it with its own private key, hands it back
+5. The cert gets installed in Windows' certificate store automatically --> Alice sees nothing, no popup, no password prompt
+6. When Alice clicks the Wi-Fi SSID, Windows presents the cert --> Wi-Fi auth --> connected
 
 That whole flow is auto-enrollment, driven by a GPO that says "the WiFiUser template auto-enrolls for Domain Users." Alice does nothing. The CA, the template, and the GPO handle it.
 
