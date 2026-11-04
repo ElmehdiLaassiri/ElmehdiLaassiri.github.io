@@ -742,7 +742,13 @@ With that out of the way, spin up your DC01 machine :
 
 <img width="3070" height="1446" alt="image" src="https://github.com/user-attachments/assets/7c42e39f-770e-49d5-9732-2ff20b043c2e" />
 
-First test with **ipconfig** if the output stops at the **Configuration IP de Windows** header with no adapters listed below it, we need to install the VirtIO NIC driver.
+Now one important thing is to change the Hostname before we start configuring the Domain : 
+
+```powershell
+Rename-Computer -NewName "DC01" -Restart
+```
+
+Then test with **ipconfig** if the output stops at the **Configuration IP de Windows** header with no adapters listed below it, we need to install the VirtIO NIC driver.
 Steps to enable it :
 1. Device Manager --> right click the Ethernet Controller with the yellow bang --> Update driver
 2. Browse my computer for drivers
@@ -1097,7 +1103,7 @@ But before we start setting up anything , we first need to define what a CA is ,
 
 ##### Quick Explanation what is a CA :
 
-<img width="897" height="562" alt="image" src="https://github.com/user-attachments/assets/02e709a3-fc69-495e-970d-fa61a2350927" />
+<img width="893" height="566" alt="image" src="https://github.com/user-attachments/assets/f4fc2d71-e6e6-428c-b919-c63f348dc524" />
 
 The classic Bob and Alice example :  ) , say they were talking to each other , how can we make sure the message coming from Alice was actually Alice and not someone impersonating her ? Well to answer this question , we had Cryptography , where Bob and Alice will share their Public Keys , and Alice will encrypt the messages that she sends Bob using Bob's public key , and only Bob can decrypt them using his private key, and vise versa .
 
@@ -1158,7 +1164,7 @@ The same pattern repeats everywhere in a real enterprise: Wi-Fi auth, smart card
 
 Let's follow the classic Alice example : Alice needs a cert for the company Wi-Fi.
 
-<img width="877" height="675" alt="image" src="https://github.com/user-attachments/assets/7805612c-0022-4ce6-aa7a-1e5c052fa73e" />
+<img width="891" height="676" alt="image" src="https://github.com/user-attachments/assets/28c65c6e-a554-47fb-8dd1-60bc875888fb" />
 
 Well Aice Boots her laptop , logs in : 
 
@@ -1232,7 +1238,7 @@ The classic one is the ESC1 and here is a quick demo :
 5. Alice runs certipy auth --> the DC accepts the cert via PKINIT --> Alice gets a Kerberos TGT AS Administrator.
 6. Alice uses the TGT to DCSync --> dumps NTDS.dit --> every password hash in the domain is hers.
 
-<img width="868" height="724" alt="image" src="https://github.com/user-attachments/assets/c63aca80-838d-45a8-b941-7492fe901459" />
+<img width="866" height="731" alt="image" src="https://github.com/user-attachments/assets/f9561a6c-8ae9-4ead-87b2-d38ef3c859b2" />
 
 GG. One misconfigured checkbox on one template. Zero vulnerabilities exploited, zero credentials cracked. Just a legitimate feature used as intended against a bad config.
 
@@ -1249,3 +1255,309 @@ CA01 (Server 2019) sits in OU=Servers for exactly this purpose.
 Now that we explained a bit what an ADCS is and what it does , we can move to configuring our CA01 . 
 
 ##### Configuring CA01 : 
+
+Now again , we need to change the Hostname before everything : 
+
+```powershell
+Rename-Computer -NewName "CA01" -Restart
+```
+
+With that out of the way, the first thing we should do is join the CA01 to our domain, it should be pretty straight forward , first we login as the Local Administrator, then you can either do it via ps or via the GUI, for our case the PS is more practical and easily reproduceable : 
+
+First we disable DHCP : 
+
+```powershell
+# Clear any DHCP lease
+Remove-NetIPAddress -InterfaceAlias "Ethernet" -Confirm:$false -ErrorAction SilentlyContinue
+Set-NetIPInterface -InterfaceAlias "Ethernet" -Dhcp Disabled
+```
+<img width="1046" height="361" alt="image" src="https://github.com/user-attachments/assets/4ed1eca8-16ab-4d8c-ae9d-f049cac41683" />
+
+Again, since this is the first time configuring our network , in case you get this error , all you need to do is update the Virtio driver , and select the one for Virtio that we installed from earlier. 
+
+<img width="1085" height="558" alt="image" src="https://github.com/user-attachments/assets/40e072d8-35f1-4466-9f4d-f5587f4b9a85" />
+
+You should see a yellow flag there, click on Ethernet then Update Driver --> Browse my computer --> Vitio-win CD --> NetKVM\2k19\amd64\ --> OK 
+
+<img width="1001" height="560" alt="image" src="https://github.com/user-attachments/assets/af7325f1-184c-4325-aaab-9f37d8aa189b" />
+
+Once installed it should say Red Hat Virtio as our Driver . And if we re run the ipconfig command ,we should find the new NIC that we got : 
+
+<img width="840" height="379" alt="image" src="https://github.com/user-attachments/assets/8ccaf9d7-6947-489a-ae95-bed58a7d2dab" />
+
+Now we can continue , we'll rerun the commands to disable DHCP first . 
+
+Then we will configure a Static IP address and point the DNS at DC01 (the DC is the DNS f course) 
+
+```powershell
+# Static IP + DNS pointing at DC01
+New-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress 10.10.10.20 -PrefixLength 24 -DefaultGateway 10.10.10.1
+Set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses 10.10.10.10
+```
+
+Now we can check our IP address to see if it changed : 
+
+<img width="1126" height="836" alt="image" src="https://github.com/user-attachments/assets/41fcb47d-837a-4d8a-bee4-c6bf3bb8b0e1" />
+
+Now just a quick sanity check let's try pinging the DC :
+
+```powershell
+ping 10.10.10.10
+nslookup 2sec.local
+# nslookup should return 10.10.10.10
+```
+
+<img width="925" height="415" alt="image" src="https://github.com/user-attachments/assets/5b96d729-3b1b-455b-8cba-6605f93f53e6" />
+
+Now this is optional , we can disable the firewall , i won't do it for now , since i want to make it realistic , but if you want to disable it later on for whatever reason : 
+
+```powershell 
+netsh advfirewall set allprofiles state off
+```
+
+Finally we'll join our CA to the Domain : 
+
+```powershell
+# Join the domain , reboots when done
+Add-Computer -DomainName "2sec.local" -Credential (Get-Credential) -Restart
+```
+
+Now the `Get-Credential` will pop a login prompt , just specify the creds for our Domain Admin :
+
+```text
+Username : 2SEC\Administrateur
+Password : whatever u specified for Administrator account on the DC earlier (the local admin account became the domain administrator account after promoting the DC01) 
+``` 
+
+<img width="1076" height="579" alt="image" src="https://github.com/user-attachments/assets/5b3f64f2-ed0b-42c6-9aaf-aff7881a9449" />
+
+Once done , it will reboot and after it reboots you can login via the Domain Admin account : 
+
+<img width="1642" height="840" alt="image" src="https://github.com/user-attachments/assets/50513110-da98-49e6-938c-d232171f82b3" />
+
+**Quick info** 
+
+*If you're on a localized Windows install , the built in Administrator account is translated : Administrateur (FR) , Administrador (ES) , Administrator (EN/DE) . Use the localized name in commands and at the login screen the SID is the same under the hood , it's just the display name that changes .*
+
+Now that we're logged in, we can start configuring our CA server . 
+
+First we need to install the AD CS role, plus two role services: the Certification Authority and Web Enrollment (which pulls in IIS). Takes about a minute.
+
+```powershell
+Install-WindowsFeature -Name AD-Certificate, ADCS-Cert-Authority, ADCS-Web-Enrollment -IncludeManagementTools
+```
+
+<img width="1080" height="235" alt="image" src="https://github.com/user-attachments/assets/f8788a08-d790-4cb5-a339-d2174c9ce945" />
+
+At this point the binaries are installed, but nothing is configured yet. There’s no CA key or certificate, and no CA is issuing anything. That comes next with `Install-AdcsCertificationAuthority`.
+
+If we navigate back to the Server manager inside the CA01 machine we should see a flag pop : 
+
+<img width="843" height="327" alt="image" src="https://github.com/user-attachments/assets/b847684e-42d0-496e-81c7-f30264161b5b" />
+
+We'll just configure it via the GUI : 
+
+1. Credentials --> 2SEC\Administrateur (should prefill) --> Next
+2. Role Services --> tick Certification Authority + Certification Authority Web Enrollment --> Next
+3. Setup Type --> Enterprise CA --> Next
+
+<img width="980" height="617" alt="image" src="https://github.com/user-attachments/assets/b59b4b21-cd51-414e-b22b-eb8a0390b0d6" />
+
+Now for this specific part , to select the Enterprise CA , you need to be part of the Enterprise Admins group , since those are known to the entire forest not only the Domain, if you try to select it but it's greyed out , just go back to the DC01 and add our Domain Admin to the Enterprise Admins group . (Administrateurs de l'entreprise if you download the french version) 
+
+```bash
+Add-ADGroupMember -Identity "Administrateurs de l'entreprise" -Members "Administrateurs"
+Get-ADGroupMember -Identity "Administrateurs de l'entreprise" | Select Name, SamAccountName
+```
+
+<img width="1210" height="245" alt="image" src="https://github.com/user-attachments/assets/4cb2b4a0-f615-491f-ac76-154e319930e4" />
+
+Now we can go back to our CA machine, log out to refresh the token session or just reboot :)  and start all over again , this time it won't be greyed out . 
+
+4. CA Type --> Root CA --> Next
+5. Private Key --> Create a new private key --> Next
+6. Cryptography --> leave all defaults (RSA#Microsoft Software KSP , 2048 , SHA256) --> Next 
+7. CA Name --> 2SEC-Root-CA --> Next
+8. Validity Period --> 10 Years --> Next
+9. Certificate Database --> leave defaults --> Next
+10. Confirmation --> Configure
+
+If it's still greyed out , just do it from the command line : 
+
+```powershell
+Install-AdcsCertificationAuthority -CAType EnterpriseRootCA -CACommonName "2SECRootCA" -ValidityPeriod Years -ValidityPeriodUnits 10 -Force
+```
+
+<img width="1503" height="335" alt="image" src="https://github.com/user-attachments/assets/7e4280e6-ae46-4a0c-83bf-c4876516eff0" />
+
+Done, now that our CA is set , we need to install the Web enrollment .
+
+```powershell
+Install-AdcsWebEnrollment -Force
+```
+
+<img width="755" height="191" alt="image" src="https://github.com/user-attachments/assets/80631abe-b902-41bb-aa85-c4674155c867" />
+
+This will set up the http://CA01/certsrv/ web enrollment page. 
+
+**Verification :**
+
+Now to verify that everything is well working , first let's check the certSvc service : 
+
+```powershell
+Get-Service CertSvc
+# It should say running 
+```
+
+We can also check it using RPC : 
+
+```powershell
+certutil -ping -config "CA01.2sec.local\2SEC-Root-CA"
+``` 
+
+This isn’t an ICMP ping. It contacts the CA service itself over RPC and checks that it responds. -config takes the CA’s address in Server\CAName format. The expected output: Ping passed
+
+<img width="1168" height="306" alt="image" src="https://github.com/user-attachments/assets/b0aac927-4b20-45b4-9726-d887d5b4ba8b" />
+
+To verify the web-enrollment , we can go to http://CA01.2sec.local/certsrv/ from any domain joined machine. windows credentials prompt pops up , log in as 2SEC\Administrateur (or any domain user , depending on what you're testing) .
+
+<img width="1292" height="710" alt="image" src="https://github.com/user-attachments/assets/f571e0d1-c6d4-48c0-b1c9-5c86b0c7dcc4" />
+
+If everything is wired up , you'll land on the Microsoft AD CS welcome page :
+
+<img width="1252" height="601" alt="image" src="https://github.com/user-attachments/assets/27311e83-bb81-4191-9cfa-4c3e217e5332" />
+
+Web enrollment isn’t the CA, it’s just a web front-end for it. The CA does the actual signing; the /certsrv site only takes your request in a browser and forwards it to the CA.
+
+###### Creating the Templates :
+
+First we'll create a template for anyone who wants to login to the wifi , and the second cert will be intentionally vulnerable for later labs . 
+
+Now to create a template , you'll need to open the certsrv.msc : 
+
+Windows + R + certsrv.msc : 
+
+<img width="1095" height="381" alt="image" src="https://github.com/user-attachments/assets/807598df-88c9-4cff-a14e-aa3183219c4e" />
+
+You should see the CA that we created earlier , now to add a Certificate Template , under it , it will show bunch of children : 
+
+<img width="1100" height="424" alt="image" src="https://github.com/user-attachments/assets/d3d9a758-6c46-4bc6-81b0-d51b5c621bd2" />
+
+The one we care about here is the Certificate Template, if we open it , we should see a list of already published templates. Let's try to publish our own , but first we need to create a new one.
+
+<img width="1141" height="546" alt="image" src="https://github.com/user-attachments/assets/99b6c1e9-3322-4cdf-b381-7c81522a66e7" />
+
+Now to add a Template we need to head to the certtmpl.msc , just Windows + R + certtmpl.msc and this should also give us the full list of Templates that are built in, default ones (not all of them are published tho) .  
+
+<img width="1297" height="822" alt="image" src="https://github.com/user-attachments/assets/0e5fc83a-9e3c-4b28-bbb0-67ed56410903" />
+
+Right Click on **User** --> Duplicate Template : 
+
+<img width="1264" height="765" alt="image" src="https://github.com/user-attachments/assets/7ae72589-ae1c-417f-9a3c-b088a66c6201" />
+
+From there : 
+
+**Tab 1 : Compatibility (might appear first)**
+
+Under the Compatibility tab :
+- Certification Authority : Windows Server 2016 (or 2019 , whatever your CA is)
+- Certificate recipient : Windows 10 / Windows Server 2016
+
+<img width="854" height="683" alt="image" src="https://github.com/user-attachments/assets/c841b817-7b7d-4379-8085-28ba584840ba" />
+
+**Tab 2 : General**
+
+- Template display name : WiFiUser
+- Template name : auto fills to WiFiUser
+- Validity period : 1 years
+- Renewal period : 6 weeks
+- ☑ Publish certificate in Active Directory
+- Leave other checkboxes default
+
+<img width="1040" height="708" alt="image" src="https://github.com/user-attachments/assets/85b74b23-f83b-4ab5-a00c-f7d7d5857f37" />
+
+**Tab 3 : Request Handling**
+
+- Purpose : Signature and encryption
+- Uncheck **Allow private key to be exported** (users shouldn't be able to grab their key file)
+- Leave other defaults
+
+<img width="1089" height="710" alt="image" src="https://github.com/user-attachments/assets/f5bb6533-61b6-4e82-b6ac-0f5e77809e98" />
+
+**Tab 4 : Cryptography**
+
+- Provider Category : Key Storage Provider
+- Algorithm name : RSA
+- Minimum key size : 2048
+- Leave rest default
+
+<img width="959" height="687" alt="image" src="https://github.com/user-attachments/assets/7cb9623e-4486-4f8e-9715-f07ed97c6046" />
+
+Tab 5 : Subject Name --> **Most Important One**
+
+- Select "Build this from Active Directory information" --> SAFE choice
+- Subject name format : Common name
+- Check "User principal name (UPN)" under "Include this information in alternate subject name"
+
+(The alternative , "Supply in the request" , is what we'll pick for BadCertTemplate later to make it vulnerable . For WiFiUser we want CA to build the subject automatically .)
+
+<img width="909" height="512" alt="image" src="https://github.com/user-attachments/assets/40c38112-2365-4183-9bf2-701832ccd4f0" />
+
+**Tab 6 : Extensions**
+
+Check that Application Policies contains Client Authentication . If yes , leave it .
+
+If not :
+- Click Application Policies --> Edit
+- Click Add
+- Pick Client Authentication --> OK
+
+This is the EKU that lets the cert be used for 802.1X Wi Fi auth / mutual TLS etc .
+
+<img width="917" height="701" alt="image" src="https://github.com/user-attachments/assets/f2b3f87d-37f2-44d2-a722-2852fa907ac4" />
+
+**Tab 7 : Security**
+
+Default perms on duplicated User template are usually fine , but verify :
+
+- Domain Users --> Read , Enroll , Autoenroll
+- Authenticated Users -->  Read (default)
+- Administrator --> Full Control (default)
+- Domain Admins --> Full Control (default)
+- Enterprise Admins --> Full Control (default)
+
+If Domain Users isn't listed --> Add --> type Domain Users --> OK --> then tick Read / Enroll / Autoenroll .
+
+<img width="895" height="670" alt="image" src="https://github.com/user-attachments/assets/1ac70080-80d2-49a7-aaa5-5e76c4975bd6" />
+
+**Tab 8 : Issuance Requirements**
+
+Leave all defaults :
+- CA certificate manager approval --> UNCHECKED (we want auto issuance)
+- This number of authorized signatures --> UNCHECKED
+
+<img width="835" height="499" alt="image" src="https://github.com/user-attachments/assets/7a071de8-ce3f-45d1-9600-ea3c4bb66bb1" />
+
+**Tab 9 : Superseded Templates**
+
+Leave it empty .
+
+**Tab 10 : Server**
+
+Leave defaults (no special options) .
+
+Finally just click OK 
+
+<img width="1195" height="728" alt="image" src="https://github.com/user-attachments/assets/a54e1d26-8065-4ed3-8085-61458d3a31cc" />
+
+We see that our Template is now created but not yet Published . 
+
+To publish it we need to go back to **certsrv.msc** --> expand your CA --> right click Certificate Templates --> New --> Certificate Template to Issue .
+
+<img width="1240" height="676" alt="image" src="https://github.com/user-attachments/assets/a65de4d4-3b0e-46db-bfea-8ee9edd1e322" />
+
+Just like that our template has been published , and any user or computer with Enroll permission on the template can request a certificate from it.
+
+<img width="1259" height="631" alt="image" src="https://github.com/user-attachments/assets/e827f98a-350e-472a-aa64-ea84d90dc346" />
+
+
