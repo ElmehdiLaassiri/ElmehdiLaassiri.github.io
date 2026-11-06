@@ -567,7 +567,7 @@ For the CA01 machine , we'll use the Windows Server 2019 ISO that we downloaded 
 
 These are the specs :
 - Hostname: CA01
-- OS: Windows Server 2022 Standard (Desktop Experience)
+- OS: Windows Server 2019 Standard (Desktop Experience)
 - RAM: 4 GB
 - vCPU: 2
 - Disk: 60 GB (qcow2, thin-provisioned so it only uses what's written)
@@ -1431,6 +1431,8 @@ Web enrollment isn’t the CA, it’s just a web front-end for it. The CA does t
 
 ###### Creating the Templates :
 
+**Wifi Template**
+
 First we'll create a template for anyone who wants to login to the wifi , and the second cert will be intentionally vulnerable for later labs . 
 
 Now to create a template , you'll need to open the certsrv.msc : 
@@ -1559,5 +1561,141 @@ To publish it we need to go back to **certsrv.msc** --> expand your CA --> right
 Just like that our template has been published , and any user or computer with Enroll permission on the template can request a certificate from it.
 
 <img width="1259" height="631" alt="image" src="https://github.com/user-attachments/assets/e827f98a-350e-472a-aa64-ea84d90dc346" />
+
+
+**Vulnerable Template**
+
+Now for the Vulnerable template ,it will be the exact same thing as the wifi one , the only thing we'll change is the **Subject Name** , this time we'll specify it to be "Supply in the request", this is what we'll need for the ESC1 attack , since our user can now specify the subject name (and SAN) in the request, they can request a certificate on behalf of a Domain Admin, and from there authenticate with it to get their NT hash.
+
+Of course, for ESC1 we still need enrollment rights on the template which is the case here, since the WiFiUser template grants Enroll to every domain user, and duplicating it carries that over as well. 
+
+Now for the steps : 
+
+
+1. Open certtmpl.msc (or certsrv.msc → Certificate Templates → Manage).
+2. Right-click WiFiUser --> Duplicate Template (duplicating from your existing one carries over compatibility, EKU, crypto so you only touch one setting).
+3. General tab: name it whatever u want. (Don't check "Publish certificate in Active Directory" not needed here.)
+
+<img width="1552" height="972" alt="image" src="https://github.com/user-attachments/assets/35ec99b5-6791-4999-8225-e283bc030374" />
+
+4. Subject Name tab: select Supply in the request <-- the actual ESC1 change. This sets `CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT` in `msPKI-Certificate-Name-Flag`, letting the requester dictate the subject AND SAN in the CSR.
+
+<img width="1756" height="1350" alt="image" src="https://github.com/user-attachments/assets/02d6479b-99b9-434e-aa8a-54a82cdfc07e" />
+
+5. Security tab: Domain Users --> Read + Enroll. Leave Autoenroll unchecked this time autoenrollment can't work when the subject is supplied in the request
+
+<img width="1910" height="1262" alt="image" src="https://github.com/user-attachments/assets/47e154a8-ecfc-42d1-938b-0e80d30aae9a" />
+
+6. Issuance Requirements tab: confirm CA certificate manager approval is not required
+
+<img width="2398" height="1030" alt="image" src="https://github.com/user-attachments/assets/ec805493-b4d5-4806-a840-e31538edbe40" />
+
+7. Publish: certsrv.msc --> Certificate Templates --> New --> Certificate Template to Issue --> BadCertTemplate.
+
+<img width="2182" height="1182" alt="image" src="https://github.com/user-attachments/assets/247598bd-0970-45a9-b791-86151770f36e" />
+
+Perfect now we've got both templates published :) 
+
+We can move to the Windows hosts . 
+
+
+##### Configuring WKS01 / WKS02 : 
+
+The windows machines are the easiest ones to set up , we just need to join them to the domain .
+
+We can either do it through the command line or via PS again , for this one WKS01 will be done via GUI while WKS02 will be set using PS . 
+
+
+##### WKS01 :
+
+Before we start , we'll need to change the Hostname first , then fix the NIC issue (like what we had with the DC01 and CA01) , just select the virtio driver . 
+
+devmgmt.msc --> Other devices --> Ethernet Controller (yellow flag) --> right-click --> Update driver --> Browse my computer for drivers.
+
+<img width="1970" height="1140" alt="image" src="https://github.com/user-attachments/assets/bd28176e-ff1e-49b5-8f91-d8a15f392d5d" />
+
+From there we select **NetKVM\w11\amd64**
+
+<img width="2200" height="1066" alt="image" src="https://github.com/user-attachments/assets/e11912a6-5390-4b87-9a37-94c90d24fc7b" />
+
+Finally if we just check our IP address we should now see one : 
+
+<img width="2266" height="1000" alt="image" src="https://github.com/user-attachments/assets/cbdd05e7-6526-4a20-92d5-b66aae25ccbf" />
+
+Now to change the Hostname :
+
+```powershell
+Rename-Computer -NewName "WKS01" -Restart
+```
+<img width="1532" height="516" alt="image" src="https://github.com/user-attachments/assets/6b7e1b4d-203b-48f3-8504-1f9fb6752811" />
+
+Now to join this machine to the Domain , via the GUI : 
+
+First we need to specify the DNS , to be the DC01 : 
+
+WIN+R --> ncpa.cpl --> Ethernet --> Properties --> IPv4 --> Use the following addresses --> IP 10.10.10.60, mask 255.255.255.0, DNS 10.10.10.10
+
+<img width="2450" height="1446" alt="image" src="https://github.com/user-attachments/assets/b2fc0e22-c8b5-4118-8662-57304f9db965" />
+
+Having a static ip address is just optional here . But the DNS has to be the one of the DC01 otherwise it won't resolve the domain name . 
+
+<img width="2346" height="1106" alt="image" src="https://github.com/user-attachments/assets/fe3e817a-469d-4e71-95af-6d1778d81861" />
+
+Now to join the machine : 
+
+Win +R --> sysdm.cpl --> Change settings --> Change 
+
+<img width="2266" height="1422" alt="image" src="https://github.com/user-attachments/assets/d506282a-3563-4163-b12f-6551a6d9f688" />
+
+Select Domain --> 2SEC.Local : It will ask for login creds , we need to specify the creds of a domain admin , in this case the Administrateur .
+
+<img width="2826" height="1532" alt="image" src="https://github.com/user-attachments/assets/942b29cd-5ce9-42fa-b371-9726462cd368" />
+
+It will ask for login creds , we need to specify the creds of a domain admin , in this case the Administrateur 
+
+Once done, we should see a welcome :
+
+<img width="2456" height="902" alt="image" src="https://github.com/user-attachments/assets/2f0416c6-ccab-4946-814f-0c727b9234c1" />
+
+Perfect now moving on to the WKS02 .
+
+
+##### WKS02 :
+
+Same thing as WKS01 , we first fix the NIC problem, then change the hostname :
+
+<img width="1536" height="692" alt="image" src="https://github.com/user-attachments/assets/2bef1440-f1b5-4ad5-a954-0ce86aa10b8f" />
+
+Once done, we'll configure the DNS to be the DC01 then join the WKS02 to the domain but this time via PS : 
+
+```powershell
+New-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress 10.10.10.80 -PrefixLength 24 -DefaultGateway 10.10.10.1
+Set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses 10.10.10.10
+```
+<img width="2186" height="968" alt="image" src="https://github.com/user-attachments/assets/c2363484-d42b-417f-aee7-5787f75bc3f1" />
+
+Now that the DNS is set and our ip is static (optional ofc) , we can join it : 
+
+```powershell
+Add-Computer -DomainName "2sec.local" -Credential 2SEC\elmehdi -Restart
+```
+
+<img width="1988" height="1186" alt="image" src="https://github.com/user-attachments/assets/7487a9ba-06f6-4f6a-80e9-f5fc76a5ac0a" />
+
+Again we just enter our login creds for the domain admin and we should be good . 
+
+Now once it reboots , you should see the Domain Login page :
+
+<img width="2538" height="1590" alt="image" src="https://github.com/user-attachments/assets/e592e7c3-6656-4d98-afbf-19e9870563c4" />
+
+ Now we won't login to this machine with the domain admin creds , since if we dump the lsass later on in the attack blogs we might get the NT hash of the DA . We'll configure what users can login to this machine , and who can RDP , all of this from the Domain Controller .
+
+
+#### Users / Groups / ACLs :
+
+
+
+
+
 
 
