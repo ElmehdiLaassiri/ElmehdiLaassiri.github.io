@@ -21,6 +21,9 @@ For the attacks , i will divide them to multiple blogs , but to give you an idea
 
 This Blog will be divided into multiple sections , first i will start by explaining the setup , then i will explain briefly how virtualization works on Linux , since we will be using a Debian machine as our Host and not Windows this time , then i will walk you through installing each VM, then once every machine is set we will start configuring our domain .  
 
+By the end of all this , our lab should look something like this , a full domain with its machines , users , groups and all the misconfigs we planted on purpose :
+
+<img width="2064" height="1754" alt="image" src="https://github.com/user-attachments/assets/6865d326-cf07-45a8-82c9-be9e00acb3fc" />
 
 ## Quick Explanation :
 
