@@ -1694,8 +1694,225 @@ Now once it reboots , you should see the Domain Login page :
 #### Users / Groups / ACLs :
 
 
+##### Groups & Memberships : 
 
 
+For ACL attacks , we'll need to add more groups and users , first the HelpDesk and DevOps group either use the GUI like we did before or just via PS : 
+
+Here is a quick PS script to copy paste , it will create the groups needed . 
+
+```powershell
+$newGroups = @(
+    @{ Name="TP_01_Lab"; Desc="Lab practice group (referenced earlier in the post)" },
+    @{ Name="HelpDesk";  Desc="Help desk - password reset duties" },
+    @{ Name="DevOps";    Desc="DevOps team - stepping stone to IT_Admins" }
+)
+
+foreach ($g in $newGroups) {
+    if (-not (Get-ADGroup -Filter "sAMAccountName -eq '$($g.Name)'")) {
+        New-ADGroup -Name $g.Name -SamAccountName $g.Name -GroupCategory Security `
+                    -GroupScope Global -Path $GroupsOU -Description $g.Desc
+        Write-Host "[+] group $($g.Name) created"
+    } else {
+        Write-Host "[=] group $($g.Name) already exists"
+    }
+}
+```
+
+Now for the users, we already added some of them earlier , but here is the full list inside each group : 
+
+| Login | Display name | Group | Notes |
+|---|---|---|---|
+| elmehdi | Elmehdi Laassiri | IT_Admins | Domain Admin |
+| j.carter | James Carter | IT_Admins | |
+| s.mitchell | Sarah Mitchell | IT_Admins | |
+| r.hayes | Robert Hayes | IT_Admins | |
+| e.turner | Emily Turner | Marketing | ForceChangePassword victim |
+| o.brooks | Olivia Brooks | Marketing | GenericAll victim → targeted Kerberoast |
+| d.reed | Daniel Reed | Marketing | |
+| j.ward | Jessica Ward | Marketing | |
+| j.bennett | John Bennett | HelpDesk | has FCP → e.turner; WriteOwner victim |
+| m.foster | Michael Foster | HelpDesk | GenericWrite victim |
+| l.simmons | Laura Simmons | HelpDesk | has WriteOwner → j.bennett |
+| k.palmer | Kevin Palmer | HelpDesk | AS-REP roast target |
+| b.cooper | Brian Cooper | DevOps | has GenericWrite → m.foster |
+| s.morgan | Steven Morgan | DevOps | has WriteOwner → DevOps group |
+| r.price | Rachel Price | DevOps | |
+| t.gray | Thomas Gray | DevOps | |
+| a.bell | Ashley Bell | TP_01_Lab | AS-REP roast target |
+| j.cole | Jason Cole | TP_01_Lab | |
+| m.ross | Megan Ross | TP_01_Lab | |
 
 
+Then for the added service accounts :
 
+| Account | Group | Notes |
+|---|---|---|
+| svc_sql | ServiceAccounts (OU) | Kerberoast (MSSQL SPN later) |
+| svc_web | ServiceAccounts (OU) | Kerberoast (HTTP SPN later) |
+
+Either via GUI or PS, just like we did in the Populating domain section, now to verify we can list the users on each group : 
+
+```powershell
+Get-ADGroupMember IT_Admins
+Get-ADGroupMember Marketing
+Get-ADGroupMember HelpDesk
+Get-ADGroupMember DevOps
+Get-ADGroupMember TP_01_Lab
+```
+
+<img width="1950" height="1632" alt="image" src="https://github.com/user-attachments/assets/6fc7e016-0fa1-49df-8f57-d1f5aea6b57b" />
+
+Perfect now let's set the ACLs . 
+
+We'll be adding more ACLs later on in the upcoming blogs where we detail the attacks , for now let's add some basic ones : 
+
+First Windows + r then `dsa.msc` : this will open the Active Directory Users and computers: 
+
+From there View ---> Advanced Features : 
+
+<img width="2410" height="1280" alt="image" src="https://github.com/user-attachments/assets/f26e3aaf-c88b-44ec-b1a7-970751eeaa38" />
+
+Now for the rest, the flow is the same for every one of these :
+1. Right-click the **target** object > **Properties** > **Security** tab > **Advanced** .
+2. **Add** > **Select a principal** > type the principal's name > **Check Names** > **OK** .
+3. Type = **Allow** , Applies to = **This object only** .
+4. Tick the one permission from the table below > **OK** > **OK** .
+
+| Target object | Principal to add | Tick this box | What it is |
+|---|---|---|---|
+| e.turner (user) | j.bennett | **Reset password** | ForceChangePassword |
+| o.brooks (user) | HelpDesk | **Full control** | GenericAll |
+| m.foster (user) | b.cooper | **Write all properties** | GenericWrite |
+| Marketing (group) | e.turner | **Add/remove self as member** | AddSelf |
+| DevOps (group) | s.morgan | **Modify owner** | WriteOwner |
+| j.bennett (user) | l.simmons | **Modify owner** | WriteOwner |
+| IT_Admins (group) | DevOps | **Modify permissions** | WriteDacl |
+
+For the ForceChangePassword :
+
+<img width="2664" height="1590" alt="image" src="https://github.com/user-attachments/assets/7472abd2-d35e-456a-8b67-4d53cec67462" />
+
+For the GenericAll :
+
+<img width="2432" height="1254" alt="image" src="https://github.com/user-attachments/assets/4fd356d3-a081-4b43-8216-dbd410bff61b" />
+
+For Generice Write : 
+
+<img width="2478" height="1310" alt="image" src="https://github.com/user-attachments/assets/33d63ca0-a155-46d7-89a8-1cb6396aac56" />
+
+For AddSelf : 
+
+<img width="2580" height="1252" alt="image" src="https://github.com/user-attachments/assets/8f793f9e-3fe4-48fa-9a1c-f3d5dc2967c6" />
+
+For Write Owner : 
+
+<img width="2592" height="1532" alt="image" src="https://github.com/user-attachments/assets/98656acf-a022-4397-a7c8-53a9a9747351" />
+
+<img width="2460" height="1590" alt="image" src="https://github.com/user-attachments/assets/2ee99adf-2b3c-4d1f-b44e-86c045a5af18" />
+
+Now for WriteDacl : 
+
+<img width="2560" height="1572" alt="image" src="https://github.com/user-attachments/assets/2a4e2604-4167-4c0d-bd92-cf94d7cfac05" />
+
+Perfect now quick explanation of these scenarios : 
+
+**ForceChangePassword (j.bennett > e.turner) :** reset her password without knowing the old one . Classic help-desk-gone-wrong .
+
+**GenericAll (HelpDesk > o.brooks) :** god-mode over the user . Reset her , set an SPN and Kerberoast her , or drop shadow creds . And a whole group holds it .
+
+**GenericWrite (b.cooper > m.foster) :** not full control but enough . Set an SPN (targeted Kerberoast) or write a shadow credential . Lowkey underrated .
+
+**AddSelf (e.turner > Marketing) :** she can add herself to the group . Harmless here , but on an interesting group it's instant privilege .
+
+**WriteOwner (s.morgan > DevOps) :** become the owner of the group , owner rewrites the DACL , grants GenericAll , adds anyone .
+
+**WriteOwner (l.simmons > j.bennett) :** same primitive on a user . And j.bennett already has ForceChangePassword on e.turner . The chain is forming .
+
+**WriteDacl (DevOps > IT_Admins) :** the big one . Any DevOps member rewrites the IT_Admins DACL , grants themselves GenericAll , adds themselves , and IT_Admins is local admin on the workstations . A mid-tier user walks all the way up .
+
+
+Now that our ACLs are done , one last thing we'll add is give the service accounts a UPN , so that we can perform Kerberoasting on it later on . 
+
+And also make one user ASREProastable, and finally allow anonymous enumeration of users . 
+
+**SPN On the Service accounts :**
+
+Either via Powershell using setspn : 
+
+```powershell
+setspn -s MSSQLSvc/sql01.2sec.local:1433 svc_sql
+setspn -s HTTP/web01.2sec.local svc_web
+```
+
+The hostnames (sql01, web01) don't even need to exist,the KDC issues a TGS for any registered SPN. That's enough to roast.
+
+Or via the GUI : 
+
+Windows + R + dsa.msc to open ADUC --> Advanced Features on --> svc_sql --> Propriétés --> Éditeur d'attributs (Attribute Editor) tab --> find servicePrincipalName --> Modifier --> add MSSQLSvc/sql01.2sec.local:1433.
+
+<img width="2364" height="1542" alt="image" src="https://github.com/user-attachments/assets/400b62de-0480-49da-920b-4a646672a749" />
+
+Same thing for SVC_web :
+
+<img width="2526" height="1494" alt="image" src="https://github.com/user-attachments/assets/8cf1a4d4-62b6-4bbf-9bc2-2ba9fdcd55a1" />
+
+Now moving on .
+
+**One AS-REP-roastable user --> k.palmer cause why not :)**
+
+We just need to enable Do Not Require Pre Auth, either via PS :  
+
+```powershell
+Set-ADAccountControl -Identity k.palmer -DoesNotRequirePreAuth $true
+```
+
+Or via GUI : 
+
+Windows + R + dsa.msc to open ADUC  k.palmer --> Propriétés --> Compte tab --> in Options de compte, check DoesNotRequirePreAuth.
+
+<img width="2190" height="1486" alt="image" src="https://github.com/user-attachments/assets/5e0fbde5-d440-400d-8893-b696c9b891d9" />
+
+**Allow Anonymous Enum**
+
+Now last thing, we should allow anonymous enumeration, but before quick explanation : 
+
+**Why it exists :** anonymous access is a legacy leftover , old apps and pre-Windows 2000 systems needed to read the directory without authenticating , so AD still ships the switches to allow it .
+
+**How to enabled it ?** two things , allow the anonymous LDAP bind itself (`dSHeuristics`) , and grant anonymous/everyone read over the objects (add them to the *Pre-Windows 2000 Compatible Access* group) .
+
+Now via PS : 
+
+```powershell
+# a) allow anonymous LDAP operations
+$cfg = (Get-ADRootDSE).configurationNamingContext
+$ds  = "CN=Directory Service,CN=Windows NT,CN=Services,$cfg"
+Set-ADObject $ds -Replace @{dSHeuristics="0000002"}
+
+# b) let anonymous + everyone read (Pre-Windows 2000 Compatible Access = S-1-5-32-554)
+Add-ADGroupMember -Identity "S-1-5-32-554" -Members "S-1-1-0","S-1-5-7"
+```
+
+Now via the GUI : 
+
+- a) adsiedit.msc --> connect to Configuration --> CN=Services --> CN=Windows NT --> CN=Directory Service --> Properties --> dSHeuristics --> set to 0000002 .
+
+If you can't find CN=Services make sure you connect while selecting a well known naming context or select Configuration . 
+
+<img width="2418" height="1494" alt="image" src="https://github.com/user-attachments/assets/2a523f37-be3e-4ccd-86de-e75ca45dd024" />
+
+Now from there we set up the anonymous binding : 
+
+<img width="2490" height="1456" alt="image" src="https://github.com/user-attachments/assets/f6ad6bef-b6ac-4b32-96dc-466c4906f973" />
+
+- b) dsa.msc --> Builtin --> Pre-Windows 2000 Compatible Access --> Properties --> Members --> Add --> add ANONYMOUS LOGON and Everyone .
+
+<img width="2188" height="1418" alt="image" src="https://github.com/user-attachments/assets/174296fc-8e46-49a7-ab4e-00732298c1e1" />
+
+Just like that we're done setting up our vulnerable domain , we will be adding other misconfigurations later on in other blogs depending on the attack but for this one , we should be good . 
+
+Here is a quick graph of the domain we got now : 
+
+<img width="2064" height="1754" alt="image" src="https://github.com/user-attachments/assets/6865d326-cf07-45a8-82c9-be9e00acb3fc" />
+
+That's it for this post :)
